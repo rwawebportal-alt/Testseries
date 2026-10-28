@@ -1,40 +1,187 @@
 // =========================================================
 // PAID TEST SERIES ONLY PORTAL ENGINE (app.js)
+// Upgraded: Domain Buttons, HTML Download & Error Logger
 // =========================================================
 const AES_KEY = CryptoJS.enc.Utf8.parse("638udh3829162018");
 
-// Custom API Domain Handler
-let API_BASE = localStorage.getItem("custom_api_domain") || "https://rozgarapinew.teachx.in";
+// --- Error Logging System ---
+window.errorLogs = [];
+window.logError = function(title, msg) {
+    const time = new Date().toLocaleTimeString();
+    window.errorLogs.unshift(`[${time}] <b>${title}</b>: ${msg}`); // Prepend latest error
+    const badge = document.getElementById("errorBadge");
+    if(badge) badge.textContent = window.errorLogs.length;
+    window.renderErrorLogs();
+};
 
-function openDomainModal() {
+window.openErrorModal = function() {
+    document.getElementById("errorModal").classList.remove("hidden");
+    window.renderErrorLogs();
+};
+
+window.closeErrorModal = function() {
+    document.getElementById("errorModal").classList.add("hidden");
+};
+
+window.clearErrorLogs = function() {
+    window.errorLogs = [];
+    const badge = document.getElementById("errorBadge");
+    if(badge) badge.textContent = "0";
+    window.renderErrorLogs();
+};
+
+window.renderErrorLogs = function() {
+    const cont = document.getElementById("errorLogContainer");
+    if(!cont) return;
+    if(window.errorLogs.length === 0) {
+        cont.innerHTML = "<div class='text-center text-slate-500 font-bold py-6'>✅ No errors found. System is running perfectly.</div>";
+        return;
+    }
+    cont.innerHTML = window.errorLogs.map(e => `
+        <div class="p-3 mb-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-mono break-all leading-relaxed shadow-sm">
+            ${e}
+        </div>
+    `).join('');
+};
+
+
+// --- Multi-Domain Manager System ---
+let savedDomains = [];
+try {
+    savedDomains = JSON.parse(localStorage.getItem("saved_api_domains")) || [];
+} catch(e) {
+    savedDomains = [];
+}
+
+if (!savedDomains || savedDomains.length === 0) {
+    savedDomains = ["https://rozgarapinew.teachx.in"];
+}
+
+let API_BASE = localStorage.getItem("active_api_domain") || savedDomains[0];
+
+function getSafeHostname(url) {
+    try { return new URL(url).hostname; } catch(e) { return url.replace('https://','').replace('http://','').split('/')[0]; }
+}
+
+window.openDomainModal = function() {
     const modal = document.getElementById("domainModal");
     if (modal) modal.classList.remove("hidden");
     const input = document.getElementById("customDomainInput");
-    if (input) input.value = API_BASE;
-}
+    if (input) input.value = ""; 
+    window.renderDomains();
+};
 
-function closeDomainModal() {
+window.closeDomainModal = function() {
     const modal = document.getElementById("domainModal");
     if (modal) modal.classList.add("hidden");
-}
+};
 
-function saveCustomDomain() {
+// List View for Modal
+window.renderDomains = function() {
+    const list = document.getElementById("savedDomainsList");
+    if (!list) return;
+    list.innerHTML = savedDomains.map((d, i) => `
+        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border ${d === API_BASE ? 'border-blue-400 bg-blue-50' : 'border-slate-200'} transition-all mb-2">
+            <span class="text-[11px] font-bold ${d === API_BASE ? 'text-blue-700' : 'text-slate-700'} truncate flex-1 cursor-pointer" onclick="setActiveDomain('${d}')">
+                ${d === API_BASE ? '✅ ' : '🌐 '} ${d}
+            </span>
+            <button onclick="removeDomain(${i})" class="text-rose-500 hover:text-rose-700 font-bold text-xs ml-3 px-2">✕</button>
+        </div>
+    `).join('');
+};
+
+// Premium Buttons for Home Screen
+window.renderHomeDomains = function() {
+    const cont = document.getElementById("homeDomainList");
+    if(!cont) return;
+    cont.innerHTML = savedDomains.map((d) => {
+        const isActive = d === API_BASE;
+        return `
+        <div onclick="selectAndExploreDomain('${d}')" class="cursor-pointer relative overflow-hidden rounded-2xl p-5 shadow-lg transition-all duration-300 ${isActive ? 'bg-gradient-to-br from-blue-600 to-indigo-700 scale-105 ring-4 ring-blue-300' : 'bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-105 hover:-translate-y-1'} flex flex-col items-center justify-center min-w-[140px] flex-1 max-w-[200px]">
+            <div class="text-3xl mb-2">${isActive ? '🌟' : '🏢'}</div>
+            <div class="text-white font-black text-sm text-center w-full truncate px-1">${getSafeHostname(d)}</div>
+            ${isActive ? '<div class="absolute top-3 right-3 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>' : ''}
+        </div>
+        `;
+    }).join('');
+};
+
+window.saveCustomDomain = function() {
     const input = document.getElementById("customDomainInput");
     if (input && input.value.trim() !== "") {
         let url = input.value.trim();
         if (url.endsWith("/")) url = url.slice(0, -1);
-        localStorage.setItem("custom_api_domain", url);
-        API_BASE = url;
-        alert("Custom API Domain setup successful!");
-        closeDomainModal();
-        if (state.currentSlide === "slideExplorer") openTestSeriesExplorer('paid_ts');
-        else location.reload();
+        if (!url.startsWith("http")) url = "https://" + url;
+        
+        if (!savedDomains.includes(url)) {
+            savedDomains.push(url);
+            localStorage.setItem("saved_api_domains", JSON.stringify(savedDomains));
+        }
+        input.value = "";
+        window.logError("Domain Setup", `Added new domain: ${url}`);
+        window.setActiveDomain(url);
     } else {
         alert("Please enter a valid URL.");
     }
-}
+};
 
-// State Management
+window.setActiveDomain = function(url) {
+    API_BASE = url;
+    localStorage.setItem("active_api_domain", url);
+    window.renderDomains();
+    window.renderHomeDomains();
+    
+    if (state.currentSlide === "slideExplorer") {
+        window.openTestSeriesExplorer('paid_ts');
+    }
+    
+    const statusBadge = document.getElementById("apiStatus");
+    if (statusBadge) statusBadge.textContent = `● Connected: ${getSafeHostname(API_BASE)}`;
+    window.closeDomainModal();
+};
+
+window.removeDomain = function(idx) {
+    if (savedDomains.length <= 1) {
+        alert("Portal chalane ke liye kam se kam 1 domain hona zaruri hai.");
+        return;
+    }
+    const removingActive = savedDomains[idx] === API_BASE;
+    window.logError("Domain Setup", `Removed domain: ${savedDomains[idx]}`);
+    savedDomains.splice(idx, 1);
+    localStorage.setItem("saved_api_domains", JSON.stringify(savedDomains));
+    
+    if (removingActive) {
+        window.setActiveDomain(savedDomains[0]);
+    } else {
+        window.renderDomains();
+        window.renderHomeDomains();
+    }
+};
+
+window.selectAndExploreDomain = function(url) {
+    window.setActiveDomain(url);
+    window.openTestSeriesExplorer('paid_ts');
+};
+
+// --- HTML Download Engine ---
+window.downloadPortalHtml = function() {
+    try {
+        const htmlContent = "<!doctype html>\n" + document.documentElement.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Coaching_Portal_${getSafeHostname(API_BASE)}.html`;
+        a.click();
+        URL.revokeObjectURL(url);
+        window.logError("Download Success", `HTML Portal file saved for offline use.`);
+    } catch(e) {
+        window.logError("Download Error", e.message);
+    }
+};
+
+
+// --- State Management ---
 let state = {
     currentSlide: "slideHome",
     previousSlide: "slideHome",
@@ -47,8 +194,9 @@ let state = {
     currentPdfUrl: ""
 };
 
-// Navigation Engine
-function showSlide(slideId) {
+
+// --- Navigation Engine ---
+window.showSlide = function(slideId) {
     if (state.currentSlide !== slideId) state.previousSlide = state.currentSlide;
     state.currentSlide = slideId;
     ["slideHome", "slideExplorer", "slideTestAttempt", "slidePdf"].forEach(id => {
@@ -68,61 +216,60 @@ function showSlide(slideId) {
         else topNav.classList.add("hidden");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
-}
+};
 
-function goHomeHub() {
-    if (typeof exitCbtTest === "function") {
-        try { exitCbtTest(); } catch (e) {}
+window.goHomeHub = function() {
+    if (typeof window.exitCbtTest === "function") {
+        try { window.exitCbtTest(); } catch (e) {}
     }
-    showSlide("slideHome");
-}
+    window.showSlide("slideHome");
+};
 
-function handleGlobalBack() {
+window.handleGlobalBack = function() {
     if (state.currentSlide === "slidePdf") {
-        closePdfSlide();
+        window.closePdfSlide();
         return;
     }
     if (state.currentSlide === "slideTestAttempt") {
-        if (typeof exitCbtTest === "function") exitCbtTest();
-        else showSlide("slideExplorer");
+        if (typeof window.exitCbtTest === "function") window.exitCbtTest();
+        else window.showSlide("slideExplorer");
         return;
     }
     if (state.currentSlide === "slideExplorer") {
         if (state.view === "ts_tests") {
-            if (state.activeTsSubId === "-1") openTestSeriesExplorer(state.tsMode);
-            else openTestSeriesSubjects(state.activeSeriesId, state.activeSeriesTitle);
+            if (state.activeTsSubId === "-1") window.openTestSeriesExplorer(state.tsMode);
+            else window.openTestSeriesSubjects(state.activeSeriesId, state.activeSeriesTitle);
             return;
         }
         if (state.view === "ts_subjects") {
-            openTestSeriesExplorer(state.tsMode);
+            window.openTestSeriesExplorer(state.tsMode);
             return;
         }
-        goHomeHub();
+        window.goHomeHub();
     }
-}
+};
 
-// API Caller
-async function fetchRawJSON(endpoint) {
+
+// --- API Caller With Logger ---
+window.fetchRawJSON = async function(endpoint) {
     const statusBadge = document.getElementById("apiStatus");
     try {
         const res = await fetch(`${API_BASE}${endpoint}`, {
-            headers: {
-                "Client-Service": "Appx",
-                "Auth-Key": "appxapi",
-                "source": "website"
-            }
+            headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" }
         });
+        if(!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
         const json = await res.json();
-        if (statusBadge) statusBadge.textContent = `● Connected: ${new URL(API_BASE).hostname}`;
+        if (statusBadge) statusBadge.textContent = `● Connected: ${getSafeHostname(API_BASE)}`;
         return json;
-    } catch {
+    } catch(e) {
         if (statusBadge) statusBadge.textContent = "● Offline / Error";
+        window.logError(`Fetch Failed`, `Endpoint: ${endpoint} | Error: ${e.message}`);
         return null;
     }
-}
+};
 
-async function fetchAPI(endpoint) {
-    const json = await fetchRawJSON(endpoint);
+window.fetchAPI = async function(endpoint) {
+    const json = await window.fetchRawJSON(endpoint);
     if (json) {
         if (json.data && (Array.isArray(json.data) ? json.data.length > 0 : Object.keys(json.data).length > 0)) {
             return json.data;
@@ -132,30 +279,31 @@ async function fetchAPI(endpoint) {
         }
     }
     return [];
-}
+};
 
-// Test Series Explorer
-async function openTestSeriesExplorer(mode) {
+
+// --- Test Series Explorer ---
+window.openTestSeriesExplorer = async function(mode) {
     state.tsMode = mode;
     state.view = "ts_list";
-    showSlide("slideExplorer");
+    window.showSlide("slideExplorer");
 
     const grid = document.getElementById("mainGrid");
-    grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">🔄 Loading Paid Test Series from ${new URL(API_BASE).hostname}...</div>`;
+    grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">🔄 Loading Paid Test Series from ${getSafeHostname(API_BASE)}...</div>`;
     document.getElementById("crumbText").textContent = "Official Exam Series";
     document.getElementById("headingText").textContent = "🏆 Paid Test Series";
 
     const [p0, p10, p20] = await Promise.all([
-        fetchAPI(`/get/test_series?start=0&search=&client_api_url=&exam_id=`),
-        fetchAPI(`/get/test_series?start=10&search=&client_api_url=&exam_id=`),
-        fetchAPI(`/get/test_series?start=20&search=&client_api_url=&exam_id=`)
+        window.fetchAPI(`/get/test_series?start=0&search=&client_api_url=&exam_id=`),
+        window.fetchAPI(`/get/test_series?start=10&search=&client_api_url=&exam_id=`),
+        window.fetchAPI(`/get/test_series?start=20&search=&client_api_url=&exam_id=`)
     ]);
 
     let combined = [...(Array.isArray(p0) ? p0 : []), ...(Array.isArray(p10) ? p10 : []), ...(Array.isArray(p20) ? p20 : [])];
 
     grid.innerHTML = "";
     if (combined.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">❌ No tests found. Check your API domain.</div>`;
+        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">❌ No tests found. Check error logs or verify domain.</div>`;
         return;
     }
 
@@ -168,7 +316,7 @@ async function openTestSeriesExplorer(mode) {
         grid.innerHTML += `
             <div onclick="openTestSeriesSubjects('${ts.id}', '${title}')" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between">
                 <div>
-                    <img src="${logo}" onerror="this.src='https://placehold.co/600x320/4f46e5/ffffff?text=RWA+Test+Series'" class="w-full h-44 object-cover">
+                    <img src="${logo}" onerror="this.src='https://placehold.co/600x320/4f46e5/ffffff?text=Paid+Test+Series'" class="w-full h-44 object-cover">
                     <div class="p-4">
                         <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">SERIES #${ts.id}</span>
                         <h3 class="font-black text-base text-slate-900 mt-2">${ts.title}</h3>
@@ -179,9 +327,9 @@ async function openTestSeriesExplorer(mode) {
                 </div>
             </div>`;
     });
-}
+};
 
-async function openTestSeriesSubjects(tsId, tsTitle) {
+window.openTestSeriesSubjects = async function(tsId, tsTitle) {
     state.activeSeriesId = tsId;
     state.activeSeriesTitle = tsTitle;
     state.view = "ts_subjects";
@@ -191,10 +339,10 @@ async function openTestSeriesSubjects(tsId, tsTitle) {
     const grid = document.getElementById("mainGrid");
     grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Loading Subjects...</div>`;
 
-    const subs = await fetchAPI(`/get/testseries_subjects?testseries_id=${tsId}`);
+    const subs = await window.fetchAPI(`/get/testseries_subjects?testseries_id=${tsId}`);
 
     if (!subs || subs.length === 0 || (subs.length === 1 && String(subs[0].subjectid) === "-1")) {
-        openTestSeriesTitles(tsId, "-1", tsTitle);
+        window.openTestSeriesTitles(tsId, "-1", tsTitle);
         return;
     }
 
@@ -212,9 +360,9 @@ async function openTestSeriesSubjects(tsId, tsTitle) {
                 </div>
             </div>`;
     });
-}
+};
 
-async function openTestSeriesTitles(tsId, subId, subName) {
+window.openTestSeriesTitles = async function(tsId, subId, subName) {
     state.view = "ts_tests";
     state.activeSeriesId = tsId;
     state.activeTsSubId = String(subId);
@@ -227,18 +375,20 @@ async function openTestSeriesTitles(tsId, subId, subName) {
     grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Fetching Mock Tests...</div>`;
 
     const ep = String(subId) === "-1"
-        ? `/get/test_titlev2?testseriesid=${tsId}&subject_id=-1&chapter_id=-1&userid=12345&search=&start=-1`
-        : `/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&chapter_id=-1&userid=12345&search=&start=-1`;
+        ? `/get/test_titlev2?testseriesid=${tsId}&subject_id=-1&chapter_id=-1&userid=-1&search=&start=-1`
+        : `/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&chapter_id=-1&userid=-1&search=&start=-1`;
 
-    let list = await fetchAPI(ep);
+    let list = await window.fetchAPI(ep);
     if ((!list || list.length === 0) && String(subId) !== "-1") {
-        const epAlt = `/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&userid=12345&search=&start=-1`;
-        list = await fetchAPI(epAlt);
+        const epAlt = `/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&userid=-1&search=&start=-1`;
+        list = await window.fetchAPI(epAlt);
     }
-    renderTestTitlesGrid(list, tsId);
-}
+    window.renderTestTitlesGrid(list, tsId);
+};
 
-function decryptAppX(encStr) {
+
+// --- Utility Encoders / Formatters ---
+window.decryptAppX = function(encStr) {
     if (!encStr || typeof encStr !== "string") return "";
     if (encStr.startsWith("http")) return encStr.trim();
     if (!encStr.includes(":")) return encStr.trim();
@@ -249,10 +399,10 @@ function decryptAppX(encStr) {
         const dec = CryptoJS.AES.decrypt(cipherParams, AES_KEY, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
         return dec.toString(CryptoJS.enc.Utf8).replace(/[\x00-\x1F\x7F]/g, "").trim();
     } catch { return ""; }
-}
+};
 
-function resolvePdfUrl(encPdf, signedPdf) {
-    const dec = decryptAppX(encPdf);
+window.resolvePdfUrl = function(encPdf, signedPdf) {
+    const dec = window.decryptAppX(encPdf);
     if (dec && dec.startsWith("http")) return dec;
     if (signedPdf && signedPdf.startsWith("http")) return signedPdf;
     if (signedPdf && signedPdf.includes("URLPrefix=")) {
@@ -263,9 +413,9 @@ function resolvePdfUrl(encPdf, signedPdf) {
         } catch {}
     }
     return signedPdf || dec || "";
-}
+};
 
-function formatCardTimeLabel(rawTime) {
+window.formatCardTimeLabel = function(rawTime) {
     const str = String(rawTime || "60").trim();
     if (str.includes("+")) {
         const parts = str.split("+").map(n => parseInt(n.trim()) || 0);
@@ -273,9 +423,11 @@ function formatCardTimeLabel(rawTime) {
         return `${sum} Mins (Sec)`;
     }
     return `${str} Mins`;
-}
+};
 
-function renderTestTitlesGrid(list, tsId) {
+
+// --- Test Grid Engine ---
+window.renderTestTitlesGrid = function(list, tsId) {
     const grid = document.getElementById("mainGrid");
     if (!list || !list.length) {
         grid.innerHTML = `<div class="col-span-full p-10 text-center font-bold text-slate-600">No tests available in this section.</div>`;
@@ -285,10 +437,10 @@ function renderTestTitlesGrid(list, tsId) {
     grid.innerHTML = "";
     list.forEach((t, idx) => {
         const tKey = `test_${t.id || idx}`;
-        const pdfUrl = resolvePdfUrl(t.pdf_url || t.test_solutions_pdf || t.pdf_summary_link, t.pdf_url);
+        const pdfUrl = window.resolvePdfUrl(t.pdf_url || t.test_solutions_pdf || t.pdf_summary_link, t.pdf_url);
         state.testMap[tKey] = { ...t, seriesId: tsId || t.test_series_id, resolvedPdf: pdfUrl };
 
-        const timeLabel = formatCardTimeLabel(t.time);
+        const timeLabel = window.formatCardTimeLabel(t.time);
         const isSectional = String(t.time || "").includes("+") || String(t.restrict_part_switching) === "1";
         const hasOptional = String(t.show_sectionselector) === "1";
 
@@ -313,17 +465,17 @@ function renderTestTitlesGrid(list, tsId) {
                 </div>
             </div>`;
     });
-}
+};
 
-function openTestPdf(tKey) {
+window.openTestPdf = function(tKey) {
     const t = state.testMap[tKey];
     if (!t || !t.resolvedPdf) return;
     state.currentPdfUrl = t.resolvedPdf;
     document.getElementById("pdfTitle").textContent = `📄 ${t.title} (Paper PDF)`;
     document.getElementById("rawPdfLink").href = t.resolvedPdf;
-    showSlide("slidePdf");
-    setPdfMode("appx");
-}
+    window.showSlide("slidePdf");
+    window.setPdfMode("appx");
+};
 
 window.setPdfMode = function(mode) {
     const frame = document.getElementById("pdfFrame");
@@ -338,14 +490,19 @@ window.setPdfMode = function(mode) {
 
 window.closePdfSlide = function() {
     document.getElementById("pdfFrame").src = "";
-    showSlide(state.previousSlide || "slideExplorer");
+    window.showSlide(state.previousSlide || "slideExplorer");
 };
 
-async function launchCbtTest(tKey) {
+
+// --- Launch Test Engine ---
+window.launchCbtTest = async function(tKey) {
     if (typeof window.launchTcsCbtEngine === "function") {
         await window.launchTcsCbtEngine(tKey);
+    } else {
+        window.logError("Test Engine Error", "tcs-engine.js is missing or failed to load.");
+        alert("Test Engine not loaded properly. Check logs.");
     }
-}
+};
 
 window.filterGrid = function() {
     const q = document.getElementById("searchBox").value.toLowerCase();
@@ -354,7 +511,10 @@ window.filterGrid = function() {
     });
 };
 
-// Start initialization
+
+// --- Init Execution ---
 if (document.getElementById("apiStatus")) {
-    document.getElementById("apiStatus").textContent = `● Connected: ${new URL(API_BASE).hostname}`;
+    try { document.getElementById("apiStatus").textContent = `● Connected: ${getSafeHostname(API_BASE)}`; } catch(e) {}
 }
+
+window.renderHomeDomains();
