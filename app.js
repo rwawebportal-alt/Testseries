@@ -1,187 +1,13 @@
 // =========================================================
-// PAID TEST SERIES ONLY PORTAL ENGINE (app.js)
-// Upgraded: Domain Buttons, HTML Download & Error Logger
+// PAID TEST SERIES MULTI-COACHING SCANNER ENGINE (app.js)
 // =========================================================
 const AES_KEY = CryptoJS.enc.Utf8.parse("638udh3829162018");
 
-// --- Error Logging System ---
-window.errorLogs = [];
-window.logError = function(title, msg) {
-    const time = new Date().toLocaleTimeString();
-    window.errorLogs.unshift(`[${time}] <b>${title}</b>: ${msg}`); // Prepend latest error
-    const badge = document.getElementById("errorBadge");
-    if(badge) badge.textContent = window.errorLogs.length;
-    window.renderErrorLogs();
-};
+let API_BASE = "https://rozgarapinew.teachx.in"; // Default Fallback
+let allCoachingsList = [];
+let validCoachings = []; // Those with tests > 0
 
-window.openErrorModal = function() {
-    document.getElementById("errorModal").classList.remove("hidden");
-    window.renderErrorLogs();
-};
-
-window.closeErrorModal = function() {
-    document.getElementById("errorModal").classList.add("hidden");
-};
-
-window.clearErrorLogs = function() {
-    window.errorLogs = [];
-    const badge = document.getElementById("errorBadge");
-    if(badge) badge.textContent = "0";
-    window.renderErrorLogs();
-};
-
-window.renderErrorLogs = function() {
-    const cont = document.getElementById("errorLogContainer");
-    if(!cont) return;
-    if(window.errorLogs.length === 0) {
-        cont.innerHTML = "<div class='text-center text-slate-500 font-bold py-6'>✅ No errors found. System is running perfectly.</div>";
-        return;
-    }
-    cont.innerHTML = window.errorLogs.map(e => `
-        <div class="p-3 mb-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-mono break-all leading-relaxed shadow-sm">
-            ${e}
-        </div>
-    `).join('');
-};
-
-
-// --- Multi-Domain Manager System ---
-let savedDomains = [];
-try {
-    savedDomains = JSON.parse(localStorage.getItem("saved_api_domains")) || [];
-} catch(e) {
-    savedDomains = [];
-}
-
-if (!savedDomains || savedDomains.length === 0) {
-    savedDomains = ["https://rozgarapinew.teachx.in"];
-}
-
-let API_BASE = localStorage.getItem("active_api_domain") || savedDomains[0];
-
-function getSafeHostname(url) {
-    try { return new URL(url).hostname; } catch(e) { return url.replace('https://','').replace('http://','').split('/')[0]; }
-}
-
-window.openDomainModal = function() {
-    const modal = document.getElementById("domainModal");
-    if (modal) modal.classList.remove("hidden");
-    const input = document.getElementById("customDomainInput");
-    if (input) input.value = ""; 
-    window.renderDomains();
-};
-
-window.closeDomainModal = function() {
-    const modal = document.getElementById("domainModal");
-    if (modal) modal.classList.add("hidden");
-};
-
-// List View for Modal
-window.renderDomains = function() {
-    const list = document.getElementById("savedDomainsList");
-    if (!list) return;
-    list.innerHTML = savedDomains.map((d, i) => `
-        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border ${d === API_BASE ? 'border-blue-400 bg-blue-50' : 'border-slate-200'} transition-all mb-2">
-            <span class="text-[11px] font-bold ${d === API_BASE ? 'text-blue-700' : 'text-slate-700'} truncate flex-1 cursor-pointer" onclick="setActiveDomain('${d}')">
-                ${d === API_BASE ? '✅ ' : '🌐 '} ${d}
-            </span>
-            <button onclick="removeDomain(${i})" class="text-rose-500 hover:text-rose-700 font-bold text-xs ml-3 px-2">✕</button>
-        </div>
-    `).join('');
-};
-
-// Premium Buttons for Home Screen
-window.renderHomeDomains = function() {
-    const cont = document.getElementById("homeDomainList");
-    if(!cont) return;
-    cont.innerHTML = savedDomains.map((d) => {
-        const isActive = d === API_BASE;
-        return `
-        <div onclick="selectAndExploreDomain('${d}')" class="cursor-pointer relative overflow-hidden rounded-2xl p-5 shadow-lg transition-all duration-300 ${isActive ? 'bg-gradient-to-br from-blue-600 to-indigo-700 scale-105 ring-4 ring-blue-300' : 'bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-105 hover:-translate-y-1'} flex flex-col items-center justify-center min-w-[140px] flex-1 max-w-[200px]">
-            <div class="text-3xl mb-2">${isActive ? '🌟' : '🏢'}</div>
-            <div class="text-white font-black text-sm text-center w-full truncate px-1">${getSafeHostname(d)}</div>
-            ${isActive ? '<div class="absolute top-3 right-3 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>' : ''}
-        </div>
-        `;
-    }).join('');
-};
-
-window.saveCustomDomain = function() {
-    const input = document.getElementById("customDomainInput");
-    if (input && input.value.trim() !== "") {
-        let url = input.value.trim();
-        if (url.endsWith("/")) url = url.slice(0, -1);
-        if (!url.startsWith("http")) url = "https://" + url;
-        
-        if (!savedDomains.includes(url)) {
-            savedDomains.push(url);
-            localStorage.setItem("saved_api_domains", JSON.stringify(savedDomains));
-        }
-        input.value = "";
-        window.logError("Domain Setup", `Added new domain: ${url}`);
-        window.setActiveDomain(url);
-    } else {
-        alert("Please enter a valid URL.");
-    }
-};
-
-window.setActiveDomain = function(url) {
-    API_BASE = url;
-    localStorage.setItem("active_api_domain", url);
-    window.renderDomains();
-    window.renderHomeDomains();
-    
-    if (state.currentSlide === "slideExplorer") {
-        window.openTestSeriesExplorer('paid_ts');
-    }
-    
-    const statusBadge = document.getElementById("apiStatus");
-    if (statusBadge) statusBadge.textContent = `● Connected: ${getSafeHostname(API_BASE)}`;
-    window.closeDomainModal();
-};
-
-window.removeDomain = function(idx) {
-    if (savedDomains.length <= 1) {
-        alert("Portal chalane ke liye kam se kam 1 domain hona zaruri hai.");
-        return;
-    }
-    const removingActive = savedDomains[idx] === API_BASE;
-    window.logError("Domain Setup", `Removed domain: ${savedDomains[idx]}`);
-    savedDomains.splice(idx, 1);
-    localStorage.setItem("saved_api_domains", JSON.stringify(savedDomains));
-    
-    if (removingActive) {
-        window.setActiveDomain(savedDomains[0]);
-    } else {
-        window.renderDomains();
-        window.renderHomeDomains();
-    }
-};
-
-window.selectAndExploreDomain = function(url) {
-    window.setActiveDomain(url);
-    window.openTestSeriesExplorer('paid_ts');
-};
-
-// --- HTML Download Engine ---
-window.downloadPortalHtml = function() {
-    try {
-        const htmlContent = "<!doctype html>\n" + document.documentElement.outerHTML;
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Coaching_Portal_${getSafeHostname(API_BASE)}.html`;
-        a.click();
-        URL.revokeObjectURL(url);
-        window.logError("Download Success", `HTML Portal file saved for offline use.`);
-    } catch(e) {
-        window.logError("Download Error", e.message);
-    }
-};
-
-
-// --- State Management ---
+// State Management
 let state = {
     currentSlide: "slideHome",
     previousSlide: "slideHome",
@@ -192,6 +18,156 @@ let state = {
     activeTsSubName: "",
     testMap: {},
     currentPdfUrl: ""
+};
+
+// Safely get hostname
+function getSafeHostname(url) {
+    try {
+        return new URL(url).hostname;
+    } catch(e) {
+        return url.replace('https://','').replace('http://','').split('/')[0];
+    }
+}
+
+// Load JSON automatically
+async function loadCoachingsJSON() {
+    try {
+        const res = await fetch("threeapis.json");
+        if (res.ok) {
+            allCoachingsList = await res.json();
+            console.log("Loaded Coachings:", allCoachingsList.length);
+        }
+    } catch(e) {
+        console.error("Failed to load threeapis.json", e);
+    }
+}
+
+// Ensure loaded on boot
+loadCoachingsJSON();
+
+
+// ==========================================
+// MASS SCANNER LOGIC (Find Active Tests)
+// ==========================================
+window.startScanning = async function() {
+    if (!allCoachingsList || allCoachingsList.length === 0) {
+        alert("Coachings list not loaded yet. Please wait or reload.");
+        return;
+    }
+
+    const btn = document.getElementById("scanBtn");
+    const progressArea = document.getElementById("scanProgressArea");
+    const progressBar = document.getElementById("scanProgressBar");
+    const countText = document.getElementById("scanCountText");
+    const grid = document.getElementById("coachingGrid");
+    
+    btn.disabled = true;
+    btn.classList.add("opacity-50", "cursor-not-allowed");
+    btn.innerHTML = "⏳ Scanning Process Started...";
+    
+    progressArea.classList.remove("hidden");
+    grid.innerHTML = "";
+    
+    validCoachings = []; // Reset previous
+    let processed = 0;
+    const total = allCoachingsList.length;
+
+    // Use concurrency for faster scanning (chunks of 10)
+    const chunkSize = 10;
+    for (let i = 0; i < total; i += chunkSize) {
+        const chunk = allCoachingsList.slice(i, i + chunkSize);
+        
+        const promises = chunk.map(async (coaching) => {
+            let api = coaching.api;
+            if (api.endsWith('/')) api = api.slice(0, -1);
+            
+            try {
+                // We check the first page of paid test series
+                const ep = `${api}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
+                const res = await fetch(ep, {
+                    headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" },
+                    signal: AbortSignal.timeout(6000) // 6 sec timeout per check
+                });
+                
+                if (res.ok) {
+                    const json = await res.json();
+                    let testCount = 0;
+                    if (json.data && Array.isArray(json.data)) {
+                        testCount = json.data.length;
+                    } else if (json.total) {
+                        testCount = parseInt(json.total) || 0;
+                    }
+                    
+                    if (testCount > 0) {
+                        validCoachings.push({
+                            name: coaching.name,
+                            api: api,
+                            total_tests: json.total || testCount
+                        });
+                    }
+                }
+            } catch(e) {
+                // Ignore failed apis (CORS, offline, timeout)
+            }
+            
+            processed++;
+            const pct = Math.round((processed / total) * 100);
+            progressBar.style.width = pct + "%";
+            countText.textContent = `${processed} / ${total}`;
+        });
+        
+        await Promise.all(promises);
+        
+        // Update UI dynamically as it finds valid ones
+        document.getElementById("totalCoachingsBadge").textContent = validCoachings.length;
+        window.renderCoachingGrid(validCoachings);
+    }
+    
+    btn.disabled = false;
+    btn.classList.remove("opacity-50", "cursor-not-allowed");
+    btn.innerHTML = "✅ Scan Complete! Re-Scan";
+    document.getElementById("scanStatusText").textContent = "Scan Completed";
+};
+
+window.renderCoachingGrid = function(list) {
+    const grid = document.getElementById("coachingGrid");
+    
+    if (!list || list.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-bold">No active coachings found yet...</div>`;
+        return;
+    }
+    
+    grid.innerHTML = list.map(c => `
+        <div onclick="selectCoaching('${c.name}', '${c.api}')" class="bg-white p-5 rounded-2xl border-2 border-indigo-100 shadow-sm hover:shadow-lg hover:border-indigo-400 transition-all cursor-pointer flex items-center justify-between group">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-black text-xs flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        ${c.name.charAt(0).toUpperCase()}
+                    </span>
+                    <h3 class="font-black text-slate-800 text-base truncate flex-1">${c.name}</h3>
+                </div>
+                <p class="text-[10px] text-slate-400 font-mono truncate ml-10">${getSafeHostname(c.api)}</p>
+            </div>
+            <div class="text-right ml-3 shrink-0">
+                <span class="block px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black text-xs rounded-lg">${c.total_tests} Tests</span>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.filterCoachings = function() {
+    const q = document.getElementById("coachingSearchBox").value.toLowerCase();
+    const filtered = validCoachings.filter(c => c.name.toLowerCase().includes(q) || c.api.toLowerCase().includes(q));
+    window.renderCoachingGrid(filtered);
+};
+
+window.selectCoaching = function(name, api) {
+    API_BASE = api;
+    
+    const statusBadge = document.getElementById("apiStatus");
+    if (statusBadge) statusBadge.textContent = `● Connected: ${name}`;
+    
+    window.openTestSeriesExplorer('paid_ts');
 };
 
 
@@ -250,20 +226,14 @@ window.handleGlobalBack = function() {
 };
 
 
-// --- API Caller With Logger ---
+// --- API Caller ---
 window.fetchRawJSON = async function(endpoint) {
-    const statusBadge = document.getElementById("apiStatus");
     try {
         const res = await fetch(`${API_BASE}${endpoint}`, {
             headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" }
         });
-        if(!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
-        const json = await res.json();
-        if (statusBadge) statusBadge.textContent = `● Connected: ${getSafeHostname(API_BASE)}`;
-        return json;
-    } catch(e) {
-        if (statusBadge) statusBadge.textContent = "● Offline / Error";
-        window.logError(`Fetch Failed`, `Endpoint: ${endpoint} | Error: ${e.message}`);
+        return await res.json();
+    } catch {
         return null;
     }
 };
@@ -303,7 +273,7 @@ window.openTestSeriesExplorer = async function(mode) {
 
     grid.innerHTML = "";
     if (combined.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">❌ No tests found. Check error logs or verify domain.</div>`;
+        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">❌ No tests found for this coaching.</div>`;
         return;
     }
 
@@ -312,7 +282,7 @@ window.openTestSeriesExplorer = async function(mode) {
         if (!ts || !ts.id || seen.has(String(ts.id))) return;
         seen.add(String(ts.id));
         const title = (ts.title || "Paid Test Series").replace(/'/g, "");
-        const logo = (ts.logo || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\\//g, "/");
+        const logo = (ts.logo || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\//g, "/");
         grid.innerHTML += `
             <div onclick="openTestSeriesSubjects('${ts.id}', '${title}')" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between">
                 <div>
@@ -349,7 +319,7 @@ window.openTestSeriesSubjects = async function(tsId, tsTitle) {
     grid.innerHTML = "";
     subs.forEach(s => {
         const sname = (s.subject_name || "Mock Tests").replace(/'/g, "");
-        const logo = (s.subject_logo || `https://placehold.co/80x80/4f46e5/ffffff?text=${encodeURIComponent(sname.slice(0, 3))}`).replace(/\\\//g, "/");
+        const logo = (s.subject_logo || `https://placehold.co/80x80/4f46e5/ffffff?text=${encodeURIComponent(sname.slice(0, 3))}`).replace(/\\//g, "/");
         grid.innerHTML += `
             <div onclick="openTestSeriesTitles('${tsId}', '${s.subjectid}', '${sname}')" class="grid-card p-4 flex items-center gap-4 cursor-pointer">
                 <img src="${logo}" onerror="this.src='https://placehold.co/80x80/4f46e5/ffffff?text=TEST'" class="w-16 h-16 rounded-2xl object-cover shadow-md">
@@ -394,10 +364,10 @@ window.decryptAppX = function(encStr) {
     if (!encStr.includes(":")) return encStr.trim();
     try {
         const [cipherB64, ivB64] = encStr.split(":");
-        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(cipherB64.replace(/\\\//g, "/")) });
+        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(cipherB64.replace(/\\//g, "/")) });
         const iv = CryptoJS.enc.Base64.parse(ivB64);
         const dec = CryptoJS.AES.decrypt(cipherParams, AES_KEY, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
-        return dec.toString(CryptoJS.enc.Utf8).replace(/[\x00-\x1F\x7F]/g, "").trim();
+        return dec.toString(CryptoJS.enc.Utf8).replace(/[ -]/g, "").trim();
     } catch { return ""; }
 };
 
@@ -499,8 +469,7 @@ window.launchCbtTest = async function(tKey) {
     if (typeof window.launchTcsCbtEngine === "function") {
         await window.launchTcsCbtEngine(tKey);
     } else {
-        window.logError("Test Engine Error", "tcs-engine.js is missing or failed to load.");
-        alert("Test Engine not loaded properly. Check logs.");
+        alert("Test Engine not loaded properly.");
     }
 };
 
@@ -510,11 +479,3 @@ window.filterGrid = function() {
         el.style.display = el.innerText.toLowerCase().includes(q) ? "" : "none";
     });
 };
-
-
-// --- Init Execution ---
-if (document.getElementById("apiStatus")) {
-    try { document.getElementById("apiStatus").textContent = `● Connected: ${getSafeHostname(API_BASE)}`; } catch(e) {}
-}
-
-window.renderHomeDomains();
