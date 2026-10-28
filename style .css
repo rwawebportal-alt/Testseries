@@ -6,40 +6,10 @@
 body {
     margin: 0;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overscroll-behavior: none; /* Prevents pull-to-refresh on mobile causing overlap */
 }
 
-.sky-nav {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.btn-nav {
-    padding: 6px 12px;
-    border-radius: 9px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-/* SMART ROUTING CLASSES */
-.app-page {
-    transition: opacity 0.3s ease-in-out;
-}
-.hidden-page {
-    display: none !important;
-    opacity: 0;
-}
-.active-page {
-    display: block !important;
-    opacity: 1;
-    animation: fadeIn 0.3s ease-in-out forwards;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
+/* HIDE SCROLLBARS FOR CLEAN UI */
 .hide-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -48,83 +18,40 @@ body {
     scrollbar-width: none;
 }
 
-/* TCS CBT FULLSCREEN SHELL */
-.tcs-fullscreen-shell {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    background-color: #f1f5f9;
-    z-index: 9999;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+/* SMART ROUTING CLASSES - EXACT SLIDE ANIMATIONS */
+.slide-page {
+    transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 10;
+}
+.hidden-slide {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(100%);
+    pointer-events: none;
+}
+.active-slide {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0);
+    z-index: 20;
 }
 
-.tcs-step-page {
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    position: relative;
+/* TCS CBT FULLSCREEN SHELL */
+.tcs-step {
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 .tcs-hidden {
     display: none !important;
-}
-
-/* START SCREEN */
-#start-screen {
-    background: #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 14px;
-}
-.start-card {
-    background: #ffffff;
-    width: 100%;
-    max-width: 480px;
-    border-radius: 24px;
-    padding: 24px;
-    max-height: 94vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-.tcs-sub-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 14px;
-    margin-bottom: 8px;
-}
-.fixed-sub {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-left: 4px solid #4f46e5;
-}
-.opt-sub {
-    background: #ffffff;
-    border: 1px solid #fbd38d;
-    border-left: 4px solid #f6ad55;
-    cursor: pointer;
-}
-.opt-sub.selected {
-    background: #f0fdf4;
-    border: 1.5px solid #22c55e;
-    border-left: 4px solid #22c55e;
 }
 
 /* LIVE TEST OPTIONS */
 .tcs-option {
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 16px;
-    font-size: 15px;
+    padding: 14px;
+    font-size: 14px;
     display: flex;
     align-items: flex-start;
     cursor: pointer;
@@ -141,13 +68,13 @@ body {
     color: #475569;
 }
 .tcs-option.selected .tcs-opt-letter { color: #4f46e5; }
-.tcs-q-text img, .tcs-option img { max-width: 100%; height: auto; border-radius: 6px; }
+#tcs-q-text img, .tcs-option img { max-width: 100%; height: auto; border-radius: 6px; }
 
 /* TABS */
 .tcs-tab {
     display: inline-block;
-    padding: 14px 20px;
-    font-size: 14px;
+    padding: 12px 18px;
+    font-size: 13px;
     font-weight: 700;
     color: #64748b;
     cursor: pointer;
@@ -159,6 +86,20 @@ body {
     background: #f8fafc;
 }
 
-/* FLT BTN */
+/* FILTER BUTTONS */
 .flt-btn { transition: all 0.2s; }
 .flt-active { background: #3730a3; color: #fff; border-color: #3730a3; }
+
+/* IPHONE SAFE AREA FIX FOR BOTTOM BAR */
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ANIMATIONS */
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.animate-slideUp {
+    animation: slideUp 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
