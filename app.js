@@ -50,83 +50,142 @@ loadCoachingsJSON();
 // MASS SCANNER LOGIC (Find Active Tests)
 // ==========================================
 window.startScanning = async function() {
-    if (!allCoachingsList || allCoachingsList.length === 0) {
-        alert("Coachings list not loaded yet. Please wait or reload.");
-        return;
-    }
-
     const btn = document.getElementById("scanBtn");
     const progressArea = document.getElementById("scanProgressArea");
     const progressBar = document.getElementById("scanProgressBar");
     const countText = document.getElementById("scanCountText");
     const grid = document.getElementById("coachingGrid");
+    const statusText = document.getElementById("scanStatusText");
     
-    btn.disabled = true;
-    btn.classList.add("opacity-50", "cursor-not-allowed");
-    btn.innerHTML = "⏳ Scanning Process Started...";
-    
-    progressArea.classList.remove("hidden");
-    grid.innerHTML = "";
-    
-    validCoachings = []; // Reset previous
-    let processed = 0;
-    const total = allCoachingsList.length;
-
-    // Use concurrency for faster scanning (chunks of 10)
-    const chunkSize = 10;
-    for (let i = 0; i < total; i += chunkSize) {
-        const chunk = allCoachingsList.slice(i, i + chunkSize);
+    try {
+        // 1. Immediate UI Feedback
+        btn.disabled = true;
+        btn.classList.add("opacity-50", "cursor-not-allowed");
+        btn.innerHTML = "⏳ Initializing Scanner...";
         
-        const promises = chunk.map(async (coaching) => {
-            let api = coaching.api;
-            if (api.endsWith('/')) api = api.slice(0, -1);
-            
+        if (progressArea) progressArea.classList.remove("hidden");
+        if (statusText) statusText.textContent = "Loading database...";
+        
+        // 2. Fetch JSON if not loaded
+        if (!allCoachingsList || allCoachingsList.length === 0) {
             try {
-                // We check the first page of paid test series
-                const ep = `${api}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
-                const res = await fetch(ep, {
-                    headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" },
-                    signal: AbortSignal.timeout(6000) // 6 sec timeout per check
-                });
-                
+                // cache-busting parameter
+                const res = await fetch("threeapis.json?v=" + new Date().getTime());
                 if (res.ok) {
-                    const json = await res.json();
-                    let testCount = 0;
-                    if (json.data && Array.isArray(json.data)) {
-                        testCount = json.data.length;
-                    } else if (json.total) {
-                        testCount = parseInt(json.total) || 0;
-                    }
-                    
-                    if (testCount > 0) {
-                        validCoachings.push({
-                            name: coaching.name,
-                            api: api,
-                            total_tests: json.total || testCount
-                        });
-                    }
+                    allCoachingsList = await res.json();
+                } else {
+                    throw new Error("HTTP " + res.status);
                 }
             } catch(e) {
-                // Ignore failed apis (CORS, offline, timeout)
+                alert("Error loading threeapis.json: Please ensure the file is uploaded. Details: " + e.message);
+                btn.innerHTML = "❌ Scan Failed. Retry";
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+                return;
             }
-            
-            processed++;
-            const pct = Math.round((processed / total) * 100);
-            progressBar.style.width = pct + "%";
-            countText.textContent = `${processed} / ${total}`;
-        });
+        }
+
+        if (allCoachingsList.length === 0) {
+            alert("No coachings found in threeapis.json!");
+            btn.innerHTML = "❌ Empty File. Retry";
+            btn.disabled = false;
+            btn.classList.remove("opacity-50", "cursor-not-allowed");
+            return;
+        }
+
+        // 3. Setup UI for Scanning
+        btn.innerHTML = "🚀 Scanning APIs In Progress...";
+        if (statusText) statusText.textContent = "Checking domains...";
+        grid.innerHTML = "";
         
-        await Promise.all(promises);
+        validCoachings = [];
+        let processed = 0;
+        const total = allCoachingsList.length;
+        if (countText) countText.textContent = `0 / ${total}`;
+        if (progressBar) progressBar.style.width = "0%";
+        document.getElementById("totalCoachingsBadge").textContent = "0";
+
+        // 4. Concurrent Queue Logic
+        const MAX_CONCURRENT = 12; // Test 12 parallel requests
+        let currentIndex = 0;
+
+        const scanWorker = async () => {
+            while (currentIndex < total) {
+                const i = currentIndex++;
+                const coaching = allCoachingsList[i];
+                let api = coaching.api;
+                if (api.endsWith('/')) api = api.slice(0, -1);
+                
+                try {
+                    const ep = `${api}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
+                    
+                    // Fallback for older WebViews that don't support AbortSignal.timeout
+                    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                    let timeoutId = null;
+                    let fetchOpts = { headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" } };
+                    
+                    if (controller) {
+                        fetchOpts.signal = controller.signal;
+                        timeoutId = setTimeout(() => controller.abort(), 7000); // 7 seconds timeout
+                    }
+                    
+                    const res = await fetch(ep, fetchOpts).catch(() => null);
+                    
+                    if (timeoutId) clearTimeout(timeoutId);
+
+                    if (res && res.ok) {
+                        const json = await res.json();
+                        let testCount = 0;
+                        if (json && json.data && Array.isArray(json.data)) {
+                            testCount = json.data.length;
+                        } else if (json && json.total) {
+                            testCount = parseInt(json.total) || 0;
+                        }
+                        
+                        if (testCount > 0) {
+                            validCoachings.push({
+                                name: coaching.name,
+                                api: api,
+                                total_tests: json.total || testCount
+                            });
+                            // Update UI instantly when one is found
+                            document.getElementById("totalCoachingsBadge").textContent = validCoachings.length;
+                            window.renderCoachingGrid(validCoachings);
+                        }
+                    }
+                } catch(e) {
+                    // Fail silently for bad APIs
+                }
+                
+                processed++;
+                if (progressBar) progressBar.style.width = Math.round((processed / total) * 100) + "%";
+                if (countText) countText.textContent = `${processed} / ${total}`;
+            }
+        };
+
+        const workers = [];
+        for (let w = 0; w < MAX_CONCURRENT; w++) {
+            workers.push(scanWorker());
+        }
         
-        // Update UI dynamically as it finds valid ones
-        document.getElementById("totalCoachingsBadge").textContent = validCoachings.length;
-        window.renderCoachingGrid(validCoachings);
+        await Promise.all(workers);
+        
+        // 5. Completion
+        btn.disabled = false;
+        btn.classList.remove("opacity-50", "cursor-not-allowed");
+        btn.innerHTML = "✅ Scan Complete! Re-Scan";
+        if (statusText) statusText.textContent = "Scan Completed!";
+        
+        if (validCoachings.length === 0) {
+            grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-bold">No active coachings with test series found.</div>`;
+        }
+
+    } catch (error) {
+        alert("Unexpected error: " + error.message);
+        btn.disabled = false;
+        btn.classList.remove("opacity-50", "cursor-not-allowed");
+        btn.innerHTML = "❌ Error Occurred. Retry";
     }
-    
-    btn.disabled = false;
-    btn.classList.remove("opacity-50", "cursor-not-allowed");
-    btn.innerHTML = "✅ Scan Complete! Re-Scan";
-    document.getElementById("scanStatusText").textContent = "Scan Completed";
 };
 
 window.renderCoachingGrid = function(list) {
