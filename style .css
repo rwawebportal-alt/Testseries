@@ -1,470 +1,164 @@
-// =========================================================
-// PAID TEST SERIES MINI APP - ENGINE (app.js)
-// =========================================================
-
-const AES_KEY = CryptoJS.enc.Utf8.parse("638udh3829162018");
-const DEFAULT_TEST_API = "https://rozgarapinew.teachx.in/get/test_series?start=0&search=&client_api_url=&exam_id=";
-const PROXY_URL = "https://proplayer.allswbatch22.workers.dev/proxy?url="; // Add proxy if facing CORS
-
-// Default Empty Tokens & Profile
-let USER_TOKENS = [];
-let USER_PROFILE = null;
-
-let state = {
-    currentSlide: "slideHome",
-    previousSlide: "slideHome",
-    activeTokenObj: null,
-    activeSeriesId: null,
-    activeSeriesTitle: "",
-    activeTsSubId: null,
-    activeTsSubName: "",
-    testMap: {},
-    cbtTest: null,
-    cbtQuestions: [],
-    cbtCurrentIdx: 0,
-    cbtResponses: {},
-    cbtSubmitted: false,
-    cbtTimerId: null,
-    cbtSecondsLeft: 0,
-    customApiMode: false,
-    currentApiUrl: DEFAULT_TEST_API 
-};
-
-// =====================================================
-// JWT TOKEN STORAGE & PARSER
-// =====================================================
-function extractUidFromJwt(jwtStr) {
-    if (!jwtStr || typeof jwtStr !== "string") return "";
-    try {
-        const parts = jwtStr.trim().split(".");
-        if (parts.length < 2) return "";
-        const base64Url = parts[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(atob(base64).split("").map(c => {
-            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(""));
-        const payload = JSON.parse(jsonPayload);
-        return String(payload.id || payload.userid || payload.user_id || "");
-    } catch {
-        return "";
-    }
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
-function loadTokens() {
-    try {
-        const raw = localStorage.getItem("mini_ts_tokens");
-        if (raw) {
-            USER_TOKENS = JSON.parse(raw);
-            if (USER_TOKENS.length > 0) state.activeTokenObj = USER_TOKENS[0];
-        }
-    } catch {}
-    updateTokenBadge();
+body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
-function updateTokenBadge() {
-    const b = document.getElementById("tokCountBadge");
-    if (b) b.textContent = USER_TOKENS.length;
-    
-    // Auth UI Updates
-    const loginBtn = document.getElementById("navLoginBtn");
-    const profileArea = document.getElementById("navProfileArea");
-    
-    if (USER_TOKENS.length > 0) {
-        if(loginBtn) loginBtn.classList.add("hidden");
-        if(profileArea) profileArea.classList.remove("hidden");
-    } else {
-        if(loginBtn) loginBtn.classList.remove("hidden");
-        if(profileArea) profileArea.classList.add("hidden");
-    }
+.sky-nav {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid #e2e8f0;
 }
 
-// =====================================================
-// API CALLER (WITH PROXY FALLBACK)
-// =====================================================
-async function fetchAPI(endpoint, tokenObj) {
-    const useTok = tokenObj || USER_TOKENS[0];
-    const headers = {
-        "Client-Service": "Appx",
-        "Auth-Key": "appxapi",
-        "source": "website",
-    };
-    
-    if (useTok) {
-        headers["Authorization"] = useTok.token;
-        headers["User-ID"] = useTok.userId || extractUidFromJwt(useTok.token) || "000000";
-    }
-
-    try {
-        const res = await fetch(endpoint, { headers });
-        const json = await res.json();
-        return (json.data || json.test_titles || json); 
-    } catch (e) {
-        console.warn("Direct fetch failed, trying proxy...", e);
-        try {
-            const proxyRes = await fetch(PROXY_URL + encodeURIComponent(endpoint), { headers });
-            const proxyJson = await proxyRes.json();
-            return (proxyJson.data || proxyJson.test_titles || proxyJson);
-        } catch (err) {
-            console.error("API Fetch Error:", err);
-            return [];
-        }
-    }
+.btn-nav {
+    padding: 6px 12px;
+    border-radius: 9px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-// =====================================================
-// CUSTOM API URL LOADER
-// =====================================================
-window.loadCustomApiTestSeries = async function() {
-    const input = document.getElementById("customApiUrlInput").value.trim();
-    if (!input) {
-        alert("Please enter a valid API URL.");
-        return;
-    }
-    
-    state.customApiMode = true;
-    state.currentApiUrl = input;
-    
-    openTestSeriesExplorer('paid_ts');
-};
-
-
-// =====================================================
-// SLIDE NAVIGATION ENGINE
-// =====================================================
-function showSlide(slideId) {
-    if (state.currentSlide !== slideId) {
-        state.previousSlide = state.currentSlide;
-    }
-    state.currentSlide = slideId;
-
-    ["slideHome", "slideExplorer", "slideTestAttempt", "slideTokens", "slidePdf"].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (id === slideId) {
-            el.classList.remove("hidden-slide");
-            el.classList.add("active-slide");
-        } else {
-            el.classList.remove("active-slide");
-            el.classList.add("hidden-slide");
-        }
-    });
-
-    const topNav = document.getElementById("topHeaderNav");
-    if (topNav) {
-        if (slideId === "slideHome") topNav.classList.remove("hidden");
-        else topNav.classList.add("hidden");
-    }
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
+/* SMART ROUTING CLASSES */
+.app-page {
+    transition: opacity 0.3s ease-in-out;
+}
+.hidden-page {
+    display: none !important;
+    opacity: 0;
+}
+.active-page {
+    display: block !important;
+    opacity: 1;
+    animation: fadeIn 0.3s ease-in-out forwards;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-window.goHomeHub = function() {
-    state.customApiMode = false; // Reset to default when going home
-    state.currentApiUrl = DEFAULT_TEST_API;
-    
-    if (state.cbtTimerId) clearInterval(state.cbtTimerId);
-    if (window.tcsTimerInterval) clearInterval(window.tcsTimerInterval);
-    showSlide("slideHome");
-};
-
-window.openTokenSlide = function() {
-    renderTokenManagerList();
-    showSlide("slideTokens");
-};
-
-window.handleGlobalBack = function() {
-    if (state.currentSlide === "slidePdf") {
-        closePdfSlide();
-        return;
-    }
-    if (state.currentSlide === "slideTestAttempt") {
-        if(typeof window.exitTcsTest === "function") window.exitTcsTest();
-        return;
-    }
-    if (state.currentSlide === "slideExplorer") {
-        if (state.activeTsSubId) {
-            // We are inside tests, go back to subjects
-            openTestSeriesSubjects(state.activeSeriesId, state.activeSeriesTitle);
-            state.activeTsSubId = null;
-        } else {
-            // Go home
-            goHomeHub();
-        }
-    }
-};
-
-// =====================================================
-// TEST SERIES EXPLORER (PAID TS & CUSTOM API)
-// =====================================================
-window.openTestSeriesExplorer = async function(mode) {
-    if (USER_TOKENS.length === 0) {
-        alert("Please add your Token/Login first to view Test Series!");
-        openLoginModal();
-        return;
-    }
-
-    showSlide("slideExplorer");
-    const grid = document.getElementById("mainGrid");
-    
-    if(state.customApiMode) {
-        document.getElementById("crumbText").textContent = "Custom Link";
-        document.getElementById("headingText").textContent = "🌐 Loaded Custom Tests";
-        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-indigo-800">🔄 Loading Custom API Tests...</div>`;
-    } else {
-        document.getElementById("crumbText").textContent = "Official Tests";
-        document.getElementById("headingText").textContent = "🏆 Paid Test Series";
-        grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-indigo-800">🔄 Loading Official Test Series...</div>`;
-    }
-
-    let tsList = await fetchAPI(state.currentApiUrl, USER_TOKENS[0]);
-    
-    if (!Array.isArray(tsList)) {
-        tsList = Object.values(tsList || {}); // Fallback if object is returned
-    }
-
-    grid.innerHTML = "";
-    if (!tsList || tsList.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">❌ No Test Series Found. Check API or Token.</div>`;
-        return;
-    }
-
-    tsList.forEach(ts => {
-        if (!ts || (!ts.id && !ts.test_series_id)) return;
-        const id = ts.id || ts.test_series_id;
-        const title = (ts.title || ts.test_series_name || "Test Series").replace(/'/g, "");
-        const logo = (ts.logo || ts.image || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\\//g, "/");
-        
-        grid.innerHTML += `
-            <div onclick="openTestSeriesSubjects('${id}', '${title}')" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between">
-                <div>
-                    <img src="${logo}" onerror="this.src='https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series'" class="w-full h-44 object-cover">
-                    <div class="p-4">
-                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">SERIES #${id}</span>
-                        <h3 class="font-black text-base text-slate-900 mt-2">${title}</h3>
-                    </div>
-                </div>
-                <div class="px-4 pb-4">
-                    <div class="btn-watch w-full text-center text-xs">Open Subjects ➔</div>
-                </div>
-            </div>`;
-    });
-};
-
-window.openTestSeriesSubjects = async function(tsId, tsTitle) {
-    state.activeSeriesId = tsId;
-    state.activeSeriesTitle = tsTitle;
-    document.getElementById("crumbText").textContent = `Series #${tsId}`;
-    document.getElementById("headingText").textContent = tsTitle;
-
-    const grid = document.getElementById("mainGrid");
-    grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Loading Subjects...</div>`;
-
-    const subApi = `https://rozgarapinew.teachx.in/get/testseries_subjects?testseries_id=${tsId}`;
-    const subs = await fetchAPI(subApi, USER_TOKENS[0]);
-
-    if (!subs || subs.length === 0 || (subs.length === 1 && String(subs[0].subjectid) === "-1")) {
-        openTestSeriesTitles(tsId, "-1", tsTitle);
-        return;
-    }
-
-    grid.innerHTML = "";
-    subs.forEach(s => {
-        const sname = (s.subject_name || "Mock Tests").replace(/'/g, "");
-        grid.innerHTML += `
-            <div onclick="openTestSeriesTitles('${tsId}', '${s.subjectid}', '${sname}')" class="grid-card p-5 flex items-center justify-between cursor-pointer">
-                <div>
-                    <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 text-[10px] font-black">SUBJECT #${s.subjectid}</span>
-                    <h4 class="font-black text-base text-slate-900 mt-1">${sname}</h4>
-                </div>
-                <span class="btn-watch text-xs">Open Tests ➔</span>
-            </div>`;
-    });
-};
-
-window.openTestSeriesTitles = async function(tsId, subId, subName) {
-    state.activeTsSubId = String(subId);
-    state.activeTsSubName = subName;
-    document.getElementById("crumbText").textContent = state.activeSeriesTitle;
-    document.getElementById("headingText").textContent = `📝 ${subName}`;
-
-    const grid = document.getElementById("mainGrid");
-    grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Fetching Mock Tests...</div>`;
-
-    const uid = USER_TOKENS[0].userId || extractUidFromJwt(USER_TOKENS[0].token) || "000000";
-    let ep = `https://rozgarapinew.teachx.in/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&chapter_id=-1&userid=${uid}&search=&start=-1`;
-    
-    // Fallback if -1 fails
-    if(subId === "-1") ep = `https://rozgarapinew.teachx.in/get/test_titlev2?testseriesid=${tsId}&subject_id=-1&userid=${uid}&search=&start=-1`;
-
-    const list = await fetchAPI(ep, USER_TOKENS[0]);
-    renderTestTitlesGrid(list, tsId);
-};
-
-function resolvePdfUrl(encPdf, signedPdf) {
-    if(signedPdf && signedPdf.startsWith("http")) return signedPdf;
-    if(encPdf && encPdf.startsWith("http")) return encPdf;
-    // Base decryption logic can be added here if needed, keeping simple for now
-    return signedPdf || encPdf || ""; 
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
-function renderTestTitlesGrid(list, tsId) {
-    const grid = document.getElementById("mainGrid");
-
-    if (!list || !list.length) {
-        grid.innerHTML = `<div class="col-span-full bg-white p-10 rounded-2xl shadow text-center font-bold text-slate-600 border border-slate-200">Is section mein abhi koi test uplabdh nahi hai.</div>`;
-        return;
-    }
-
-    grid.innerHTML = "";
-    list.forEach((t, idx) => {
-        const tKey = `test_${t.id || idx}`;
-        const pdfUrl = resolvePdfUrl(t.pdf_url || t.test_solutions_pdf, t.pdf_url);
-        
-        state.testMap[tKey] = {
-            ...t,
-            seriesId: tsId,
-            resolvedPdf: pdfUrl,
-            tokenObj: USER_TOKENS[0]
-        };
-
-        const timeLabel = String(t.time || "60").includes("+") ? "Sectional Time" : `${t.time} Mins`;
-
-        grid.innerHTML += `
-            <div class="grid-card p-5 flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-center gap-2 flex-wrap">
-                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">TEST #${t.id || (idx + 1)}</span>
-                        <span class="text-[11px] font-extrabold text-emerald-700">⏱️ ${timeLabel}</span>
-                    </div>
-                    <h4 class="font-black text-base text-slate-900 mt-2">${t.title}</h4>
-                    <div class="flex gap-2.5 mt-2 text-xs font-bold text-slate-600 flex-wrap">
-                        <span>❓ ${t.questions || 100} Qs</span>
-                        <span>🏆 ${t.marks || 100} Marks</span>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-indigo-100">
-                    <button onclick="launchCbtTest('${tKey}')" class="btn-watch flex-1 text-xs">🚀 Attempt Live Test</button>
-                    ${pdfUrl ? `<button onclick="openTestPdf('${tKey}')" class="btn-watch bg-emerald-600 text-xs">📄 PDF</button>` : ""}
-                </div>
-            </div>`;
-    });
+/* TCS CBT FULLSCREEN SHELL */
+.tcs-fullscreen-shell {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background-color: #f1f5f9;
+    z-index: 9999;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
-// =====================================================
-// CBT LAUNCHER & PDF
-// =====================================================
-window.launchCbtTest = async function(tKey) {
-    if (typeof window.launchTcsCbtEngine === "function") {
-        await window.launchTcsCbtEngine(tKey);
-    } else {
-        alert("TCS Engine Loading...");
-    }
-};
+.tcs-step-page {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.tcs-hidden {
+    display: none !important;
+}
 
-window.openTestPdf = function(tKey) {
-    const t = state.testMap[tKey];
-    if (!t || !t.resolvedPdf) return;
-    
-    document.getElementById("pdfTitle").textContent = `📄 ${t.title}`;
-    document.getElementById("pdfFrame").src = `https://docs.google.com/viewer?url=${encodeURIComponent(t.resolvedPdf)}&embedded=true`;
-    showSlide("slidePdf");
-};
+/* START SCREEN */
+#start-screen {
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+}
+.start-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 24px;
+    padding: 24px;
+    max-height: 94vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+.tcs-sub-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+.fixed-sub {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #4f46e5;
+}
+.opt-sub {
+    background: #ffffff;
+    border: 1px solid #fbd38d;
+    border-left: 4px solid #f6ad55;
+    cursor: pointer;
+}
+.opt-sub.selected {
+    background: #f0fdf4;
+    border: 1.5px solid #22c55e;
+    border-left: 4px solid #22c55e;
+}
 
-window.closePdfSlide = function() {
-    document.getElementById("pdfFrame").src = "";
-    showSlide("slideExplorer");
-};
+/* LIVE TEST OPTIONS */
+.tcs-option {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 15px;
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    background: #ffffff;
+    transition: all 0.15s ease;
+}
+.tcs-option.selected {
+    border: 1.5px solid #4f46e5;
+    background: #eef2ff;
+}
+.tcs-opt-letter {
+    font-weight: 900;
+    margin-right: 12px;
+    color: #475569;
+}
+.tcs-option.selected .tcs-opt-letter { color: #4f46e5; }
+.tcs-q-text img, .tcs-option img { max-width: 100%; height: auto; border-radius: 6px; }
 
-// =====================================================
-// TOKEN MANAGER & LOGIN LOGIC
-// =====================================================
-window.renderTokenManagerList = function() {
-    const container = document.getElementById("tokenListContainer");
-    if (!container) return;
-    container.innerHTML = "";
+/* TABS */
+.tcs-tab {
+    display: inline-block;
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+}
+.tcs-tab.active {
+    color: #3730a3;
+    border-bottom: 3px solid #3730a3;
+    background: #f8fafc;
+}
 
-    if (USER_TOKENS.length === 0) {
-        container.innerHTML = `<div class="p-4 text-center text-xs font-bold text-slate-500 border border-dashed border-slate-300 rounded-xl">No active tokens. Please add one below.</div>`;
-        return;
-    }
-
-    USER_TOKENS.forEach((t, idx) => {
-        const shortTok = t.token.slice(0, 30) + "..." + t.token.slice(-10);
-        container.innerHTML += `
-            <div class="bg-white border-2 border-indigo-200 rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3 shadow-sm">
-                <div class="min-w-0 flex-1">
-                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">TOKEN #${idx + 1}</span>
-                    <h5 class="font-extrabold text-sm text-slate-900 truncate mt-1">UID: ${t.userId || "Unknown"}</h5>
-                    <p class="text-[11px] font-mono text-slate-600 mt-1 truncate">${shortTok}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="navigator.clipboard.writeText('${t.token}'); alert('Token Copied!');" class="btn-nav bg-indigo-600 text-white border-0 text-xs">📋 Copy</button>
-                    <button onclick="deleteToken('${t.id}')" class="btn-nav bg-rose-600 text-white border-0 text-xs">🗑 Delete</button>
-                </div>
-            </div>`;
-    });
-};
-
-window.addNewToken = function() {
-    let token = document.getElementById("newTokValue").value.trim();
-    if (!token) { alert("Please paste JWT Token."); return; }
-    token = token.replace(/^["']|["']$/g, "").replace(/^Authorization:\s*/i, "").trim();
-
-    const userId = extractUidFromJwt(token) || "User_" + Math.floor(Math.random()*1000);
-    
-    const newTokObj = {
-        id: "utok_" + Date.now(),
-        userId: userId,
-        token: token,
-    };
-
-    USER_TOKENS.push(newTokObj);
-    localStorage.setItem("mini_ts_tokens", JSON.stringify(USER_TOKENS));
-    
-    document.getElementById("newTokValue").value = "";
-    renderTokenManagerList();
-    updateTokenBadge();
-    alert("Token Added Successfully!");
-};
-
-window.deleteToken = function(id) {
-    USER_TOKENS = USER_TOKENS.filter(t => t.id !== id);
-    localStorage.setItem("mini_ts_tokens", JSON.stringify(USER_TOKENS));
-    renderTokenManagerList();
-    updateTokenBadge();
-};
-
-
-// Simple Login Modal Logic
-window.openLoginModal = function() { document.getElementById("loginModal").classList.remove("hidden"); };
-window.closeLoginModal = function() { document.getElementById("loginModal").classList.add("hidden"); };
-
-window.switchLoginMode = function(mode) {
-    if(mode === 'token') {
-        document.getElementById("loginBoxCreds").classList.add("hidden");
-        document.getElementById("loginBoxToken").classList.remove("hidden");
-        document.getElementById("tabBtnToken").classList.add("bg-indigo-600", "text-white");
-        document.getElementById("tabBtnCreds").classList.remove("bg-indigo-600", "text-white");
-    } else {
-        document.getElementById("loginBoxCreds").classList.remove("hidden");
-        document.getElementById("loginBoxToken").classList.add("hidden");
-        document.getElementById("tabBtnCreds").classList.add("bg-indigo-600", "text-white");
-        document.getElementById("tabBtnToken").classList.remove("bg-indigo-600", "text-white");
-    }
-};
-
-window.submitUserLogin = function(mode) {
-    if(mode === 'token') {
-        let t = document.getElementById("loginTokenInput").value;
-        if(t) {
-            document.getElementById("newTokValue").value = t;
-            addNewToken();
-            closeLoginModal();
-        }
-    } else {
-        alert("Password login not implemented in mini app. Please use Token.");
-    }
-};
-
-// Init
-loadTokens();
+/* FLT BTN */
+.flt-btn { transition: all 0.2s; }
+.flt-active { background: #3730a3; color: #fff; border-color: #3730a3; }
