@@ -1,6 +1,6 @@
 // =========================================================
 // TEST PRO - SMART ENGINE (app.js)
-// Slide Routing, Debug Logger & Triple Fallback API
+// Fixed Slide Routing & Nav Hiding
 // =========================================================
 
 const PROXY_URL = "https://proplayer.allswbatch22.workers.dev/proxy?url="; 
@@ -28,8 +28,7 @@ function logDebug(msg, type = "info") {
 }
 
 window.toggleDebugBox = function() {
-    const overlay = document.getElementById("debugBoxOverlay");
-    overlay.classList.toggle("hidden");
+    document.getElementById("debugBoxOverlay").classList.toggle("hidden");
 };
 
 window.clearDebugLogs = function() {
@@ -43,9 +42,20 @@ window.copyDebugLogs = function() {
 };
 
 // =====================================================
-// SLIDE NAVIGATION ENGINE (NO OVERLAPS)
+// SLIDE NAVIGATION ENGINE (FIXED OVERLAP)
 // =====================================================
 window.showSlide = function(slideId) {
+    // 1. Hide Global Nav for Fullscreen sections (CBT & PDF)
+    const nav = document.getElementById("topHeaderNav");
+    if(nav) {
+        if(slideId === "page-cbt" || slideId === "page-pdf") {
+            nav.classList.add("hidden");
+        } else {
+            nav.classList.remove("hidden");
+        }
+    }
+
+    // 2. Animate Pages
     document.querySelectorAll(".slide-page").forEach(el => {
         if(el.id === slideId) {
             el.classList.remove("hidden-slide");
@@ -70,10 +80,9 @@ async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) 
         "Client-Service": "Appx",
         "Auth-Key": "appxapi",
         "source": "website",
-        "User-ID": "000000" // Bypass
+        "User-ID": "000000"
     };
     
-    // METHOD 1: Direct Fetch
     try {
         logDebug(`[Method 1] Direct fetch: ${endpoint}`);
         const res = await fetch(endpoint, { headers });
@@ -86,7 +95,6 @@ async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) 
     } catch (e1) {
         logDebug(`Method 1 Failed: ${e1.message}`, "warn");
         
-        // METHOD 2: Proxy Fetch
         try {
             logDebug(`[Method 2] Proxy fetch for: ${endpoint}`);
             const pRes = await fetch(PROXY_URL + encodeURIComponent(endpoint), { headers });
@@ -99,16 +107,13 @@ async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) 
         } catch (e2) {
             logDebug(`Method 2 Failed: ${e2.message}`, "warn");
             
-            // METHOD 3: Specific Alternative API (Only for subjects/series details)
             if(isTestSeriesDetails && seriesId) {
                 try {
                     const fallbackUrl = `${state.currentDomain}/Test_Series/test_series_by_id?id=${seriesId}`;
                     logDebug(`[Method 3] Alternative API fetch: ${fallbackUrl}`);
                     
-                    // Try direct alternative
                     let altRes = await fetch(fallbackUrl, { headers }).catch(() => null);
                     if(!altRes || !altRes.ok) {
-                        // Try proxy alternative
                         altRes = await fetch(PROXY_URL + encodeURIComponent(fallbackUrl), { headers });
                     }
                     
@@ -187,8 +192,6 @@ window.openTestSeriesSubjects = async function(tsId, tsTitle) {
     grid.innerHTML = `<div class="py-10 text-center font-bold text-slate-700 animate-pulse">Loading Subjects...</div>`;
 
     const subApi = `${state.currentDomain}/get/testseries_subjects?testseries_id=${tsId}`;
-    
-    // Pass 'true' and 'tsId' to enable Method 3 (Third Fallback)
     const subs = await fetchAPI(subApi, true, tsId);
 
     if (!subs || subs.length === 0 || (subs.length === 1 && String(subs[0].subjectid) === "-1")) {
