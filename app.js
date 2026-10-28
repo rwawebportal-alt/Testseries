@@ -1,12 +1,48 @@
 // =========================================================
-// TEST PRO - SMART ENGINE (app.js)
-// Complete Wrapper Separation Logic
+// PAID TEST SERIES ONLY - MINI APP (app.js)
 // =========================================================
 
-const PROXY_URL = "https://proplayer.allswbatch22.workers.dev/proxy?url="; 
+const WORKER_RAW_PROXY = "https://proplayer.allswbatch22.workers.dev/proxy?url=";
+
+// 1. DYNAMIC API & TOKEN INJECTION (NEW FEATURE)
+let API_BASE = localStorage.getItem("custom_api_domain") || "https://rozgarapinew.teachx.in";
+let USER_TOKEN = localStorage.getItem("custom_user_token") || "";
+
+window.changeDomainAndToken = function() {
+    const newDomain = prompt("Naya API Domain URL dalein (e.g. https://api.newdomain.com):", API_BASE);
+    if (newDomain) {
+        localStorage.setItem("custom_api_domain", newDomain);
+        API_BASE = newDomain;
+        
+        const newToken = prompt("Agar API ke liye Auth Token chahiye, toh yahan dalein (Optional):", USER_TOKEN);
+        if (newToken !== null) {
+            localStorage.setItem("custom_user_token", newToken);
+            USER_TOKEN = newToken;
+        }
+        alert("✅ Naya Domain set ho gaya hai! Test Series reload ho rahi hai...");
+        openTestSeriesExplorer('paid_ts');
+    }
+};
+
+// 2. FALLBACK DATABASE (Only Paid Test Series kept)
+const DB = {
+    paidTestSeries: [
+        { id: "708", title: "SSC GD Test Series 2026", logo: "https://appx-content-v2.classx.co.in/subject/2026-07-08-0_5839850466807497.png" },
+        { id: "776", title: "MP Police Constable 2026", logo: "https://appx-content-v2.classx.co.in/subject/2026-09-18-0_25895258012558897.jpeg" }
+    ],
+    tsSubjects: {
+        "708": [{ subjectid: "-1", subject_name: "Uncategorized", subject_logo: "" }]
+    },
+    tsTitles: {
+        "708_-1": [
+            { id: "41288", title: "SSC GD Test 01", test_series_id: "708", free_flag: "0", time: "60", questions: "100", marks: "160" }
+        ]
+    }
+};
 
 let state = {
-    currentDomain: "https://rozgarapinew.teachx.in",
+    currentSlide: "slideExplorer",
+    previousSlide: "slideExplorer",
     activeSeriesId: null,
     activeSeriesTitle: "",
     activeTsSubId: null,
@@ -14,161 +50,120 @@ let state = {
     testMap: {}
 };
 
-function logDebug(msg, type = "info") {
-    const box = document.getElementById("debugLogContent");
-    if(!box) return;
-    const time = new Date().toLocaleTimeString();
-    let color = type === "error" ? "text-rose-400" : (type === "warn" ? "text-amber-400" : "text-emerald-400");
-    box.innerHTML += `<div class="mb-1"><span class="text-slate-500">[${time}]</span> <span class="${color}">${msg}</span></div>`;
-    box.scrollTop = box.scrollHeight;
-    console.log(`[${type.toUpperCase()}] ${msg}`);
-}
+// Remove Login Check (Always returns true now)
+function enforceCompulsoryLogin() { return true; }
 
-window.toggleDebugBox = function() {
-    document.getElementById("debugBoxOverlay").classList.toggle("hidden");
-};
-window.clearDebugLogs = function() {
-    document.getElementById("debugLogContent").innerHTML = "> Logs cleared...<br>";
-};
-window.copyDebugLogs = function() {
-    const text = document.getElementById("debugLogContent").innerText;
-    navigator.clipboard.writeText(text);
-    alert("Debug logs copied to clipboard!");
-};
-
-// =====================================================
-// FIXED NAVIGATION ENGINE (Handles Display none perfectly)
-// =====================================================
-window.showSlide = function(slideId) {
-    // Standard Pages (Home, Series, Subjects, Tests)
-    const stdPages = ["page-home", "page-series", "page-subjects", "page-tests"];
-    const stdWrapper = document.getElementById("standard-app-wrapper");
-    const cbtPage = document.getElementById("page-cbt");
-    const pdfPage = document.getElementById("page-pdf");
-
-    if (stdPages.includes(slideId)) {
-        stdWrapper.style.display = "flex";
-        cbtPage.style.display = "none";
-        cbtPage.classList.add("hidden");
-        pdfPage.style.display = "none";
-        pdfPage.classList.add("hidden");
-
-        stdPages.forEach(id => {
-            const el = document.getElementById(id);
-            if(id === slideId) {
+function showSlide(slideId) {
+    state.previousSlide = state.currentSlide;
+    state.currentSlide = slideId;
+    ["slideExplorer", "slideTestAttempt", "slidePdf"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (id === slideId) {
                 el.classList.remove("hidden-slide");
                 el.classList.add("active-slide");
             } else {
-                el.classList.add("hidden-slide");
                 el.classList.remove("active-slide");
+                el.classList.add("hidden-slide");
             }
-        });
-    } else if (slideId === "page-cbt") {
-        stdWrapper.style.display = "none"; 
-        cbtPage.style.display = "flex";
-        cbtPage.classList.remove("hidden");
-        pdfPage.style.display = "none";
-        pdfPage.classList.add("hidden");
-    } else if (slideId === "page-pdf") {
-        stdWrapper.style.display = "none";
-        cbtPage.style.display = "none";
-        cbtPage.classList.add("hidden");
-        pdfPage.style.display = "flex";
-        pdfPage.classList.remove("hidden");
-    }
-};
-
-window.goHome = function() {
-    if(typeof exitCbtTest === "function") exitCbtTest();
-    showSlide("page-home");
-};
-
-// =====================================================
-// TRIPLE FALLBACK API CALLER
-// =====================================================
-async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) {
-    const headers = { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website", "User-ID": "000000" };
-    
-    try {
-        logDebug(`[Method 1] Direct fetch: ${endpoint}`);
-        const res = await fetch(endpoint, { headers });
-        const json = await res.json();
-        if (json.data && Object.keys(json.data).length > 0) return json.data;
-        if (json.test_titles && json.test_titles.length > 0) return json.test_titles;
-        if (Array.isArray(json) && json.length > 0) return json;
-        throw new Error("Empty data in Method 1");
-    } catch (e1) {
-        logDebug(`Method 1 Failed: ${e1.message}`, "warn");
-        try {
-            logDebug(`[Method 2] Proxy fetch for: ${endpoint}`);
-            const pRes = await fetch(PROXY_URL + encodeURIComponent(endpoint), { headers });
-            const pJson = await pRes.json();
-            if (pJson.data && Object.keys(pJson.data).length > 0) return pJson.data;
-            if (pJson.test_titles && pJson.test_titles.length > 0) return pJson.test_titles;
-            if (Array.isArray(pJson) && pJson.length > 0) return pJson;
-            throw new Error("Empty data in Method 2");
-        } catch (e2) {
-            logDebug(`Method 2 Failed: ${e2.message}`, "warn");
-            if(isTestSeriesDetails && seriesId) {
-                try {
-                    const fallbackUrl = `${state.currentDomain}/Test_Series/test_series_by_id?id=${seriesId}`;
-                    logDebug(`[Method 3] Alternative API fetch: ${fallbackUrl}`);
-                    let altRes = await fetch(fallbackUrl, { headers }).catch(() => null);
-                    if(!altRes || !altRes.ok) altRes = await fetch(PROXY_URL + encodeURIComponent(fallbackUrl), { headers });
-                    const altJson = await altRes.json();
-                    if (altJson.data) return altJson.data;
-                    if (Array.isArray(altJson)) return altJson;
-                    throw new Error("Empty data in Method 3");
-                } catch (e3) {
-                    logDebug(`Method 3 Failed: ${e3.message}`, "error"); return [];
-                }
-            }
-            logDebug("All fetch methods exhausted.", "error"); return [];
         }
-    }
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// =====================================================
-// APP LOGIC
-// =====================================================
-window.startAppWithDomain = async function() {
-    let input = document.getElementById("domainInput").value.trim();
-    if(!input) input = "sciencemagnet.classx.co.in";
-    if(input.endsWith("/")) input = input.slice(0, -1);
-    if(!input.startsWith("http")) input = "https://" + input;
-
-    state.currentDomain = input;
-    logDebug(`Domain set to: ${state.currentDomain}`);
-    await openTestSeriesExplorer();
+window.goHomeHub = function() {
+    openTestSeriesExplorer('paid_ts');
 };
 
-window.openTestSeriesExplorer = async function() {
-    showSlide("page-series");
-    const grid = document.getElementById("seriesGrid");
-    grid.innerHTML = `<div class="py-12 text-center font-black text-indigo-700 animate-pulse">🔄 Loading Test Series...</div>`;
-    
-    const fullUrl = `${state.currentDomain}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
-    let tsList = await fetchAPI(fullUrl);
-    if (!Array.isArray(tsList)) tsList = Object.values(tsList || {});
-
-    if (!tsList || tsList.length === 0) {
-        grid.innerHTML = `<div class="py-10 text-center font-bold text-rose-600">❌ No Test Series Found. Check Debug Logs.</div>`;
+window.handleGlobalBack = function() {
+    if (state.currentSlide === "slidePdf") {
+        closePdfSlide();
         return;
     }
+    if (state.currentSlide === "slideTestAttempt") {
+        if (typeof exitCbtTest === 'function') exitCbtTest();
+        else showSlide("slideExplorer");
+        return;
+    }
+    if (state.currentSlide === "slideExplorer") {
+        if (state.view === "ts_tests" && state.activeTsSubId !== "-1") {
+            openTestSeriesSubjects(state.activeSeriesId, state.activeSeriesTitle);
+            return;
+        }
+        openTestSeriesExplorer('paid_ts');
+    }
+};
 
-    grid.innerHTML = "";
-    tsList.forEach(ts => {
-        if (!ts || (!ts.id && !ts.test_series_id)) return;
-        const id = ts.id || ts.test_series_id;
-        const title = (ts.title || ts.test_series_name || "Test Series").replace(/'/g, "");
-        const logo = (ts.logo || ts.image || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\\//g, "/");
-        
-        grid.innerHTML += `
-            <div onclick="openTestSeriesSubjects('${id}', '${title}')" class="bg-white border border-slate-200 rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between shadow-sm mb-4">
-                <img src="${logo}" onerror="this.src='https://placehold.co/600x320/4f46e5/ffffff?text=Test'" class="w-full h-40 object-cover">
-                <div class="p-4">
-                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">SERIES #${id}</span>
-                    <h3 class="font-black text-base text-slate-900 mt-2">${title}</h3>
+// 3. CORE API FETCH LOGIC (Using Dynamic API_BASE and TOKEN)
+async function fetchAPI(endpoint, fallbackGetter) {
+    try {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            headers: {
+                "Client-Service": "Appx",
+                "Auth-Key": "appxapi",
+                "source": "website",
+                "Authorization": USER_TOKEN
+            }
+        });
+        const json = await res.json();
+        if (json && json.data && (Array.isArray(json.data) ? json.data.length > 0 : Object.keys(json.data).length > 0)) {
+            return json.data;
+        }
+        if (json && json.test_titles && Array.isArray(json.test_titles) && json.test_titles.length > 0) {
+            return json.test_titles;
+        }
+    } catch (e) {
+        console.warn("API Fetch Failed from", API_BASE, e);
+    }
+    return fallbackGetter ? fallbackGetter() : [];
+}
+
+// 4. TEST SERIES EXPLORER (Only Paid)
+window.openTestSeriesExplorer = async function(mode) {
+    state.tsMode = "paid_ts";
+    state.view = "ts_list";
+    showSlide("slideExplorer");
+
+    const grid = document.getElementById("mainGrid");
+    if(grid) grid.innerHTML = `<div class="col-span-full py-12 text-center font-extrabold text-slate-800">🔄 Loading Test Series from ${API_BASE}...</div>`;
+
+    const [p0, p10] = await Promise.all([
+        fetchAPI(`/get/test_series?start=0`, () => []),
+        fetchAPI(`/get/test_series?start=10`, () => [])
+    ]);
+
+    let combined = [...(Array.isArray(p0) ? p0 : []), ...(Array.isArray(p10) ? p10 : []), ...(DB.paidTestSeries || [])];
+    const seen = new Set();
+    
+    if(grid) {
+        grid.innerHTML = `
+        <div onclick="changeDomainAndToken()" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between" style="border-color: #059669; background: #ecfdf5;">
+            <div class="p-4 text-center">
+                <h3 class="font-black text-lg text-emerald-700 mt-2">⚙️ Add New Domain</h3>
+                <p class="text-xs font-bold text-slate-600 mt-1 truncate" style="max-width: 100%;">Current: ${API_BASE}</p>
+            </div>
+            <div class="px-4 pb-4">
+                <div class="btn-watch w-full text-center text-xs" style="background: #059669;">Change API URL ➔</div>
+            </div>
+        </div>`;
+    }
+
+    combined.forEach(ts => {
+        if (!ts || !ts.id || seen.has(String(ts.id))) return;
+        seen.add(String(ts.id));
+        const title = (ts.title || "Paid Test Series").replace(/'/g, "");
+        const logo = (ts.logo || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\//g, "/");
+        if(grid) grid.innerHTML += `
+            <div onclick="openTestSeriesSubjects('${ts.id}', '${title}')" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between">
+                <div>
+                    <img src="${logo}" onerror="this.src='https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series'" class="w-full h-44 object-cover">
+                    <div class="p-4">
+                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">SERIES #${ts.id}</span>
+                        <h3 class="font-black text-base text-slate-900 mt-2">${ts.title}</h3>
+                    </div>
+                </div>
+                <div class="px-4 pb-4">
+                    <div class="btn-watch w-full text-center text-xs">Open Test Subjects ➔</div>
                 </div>
             </div>`;
     });
@@ -177,101 +172,132 @@ window.openTestSeriesExplorer = async function() {
 window.openTestSeriesSubjects = async function(tsId, tsTitle) {
     state.activeSeriesId = tsId;
     state.activeSeriesTitle = tsTitle;
-    document.getElementById("subPageTitle").textContent = tsTitle;
+    state.view = "ts_subjects";
 
-    showSlide("page-subjects");
-    const grid = document.getElementById("subjectsGrid");
-    grid.innerHTML = `<div class="py-10 text-center font-bold text-slate-700 animate-pulse">Loading Subjects...</div>`;
+    const grid = document.getElementById("mainGrid");
+    if(grid) grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Loading Subjects...</div>`;
 
-    const subApi = `${state.currentDomain}/get/testseries_subjects?testseries_id=${tsId}`;
-    const subs = await fetchAPI(subApi, true, tsId);
+    const subs = await fetchAPI(`/get/testseries_subjects?testseries_id=${tsId}`, () => DB.tsSubjects[tsId] || []);
 
     if (!subs || subs.length === 0 || (subs.length === 1 && String(subs[0].subjectid) === "-1")) {
-        logDebug(`No subjects found, directly loading tests for series ${tsId}`);
         openTestSeriesTitles(tsId, "-1", tsTitle);
         return;
     }
 
-    grid.innerHTML = "";
+    if(grid) grid.innerHTML = "";
     subs.forEach(s => {
-        const sname = (s.subject_name || s.name || "Mock Tests").replace(/'/g, "");
-        const sId = s.subjectid || s.id;
+        const sname = (s.subject_name || "Mock Tests").replace(/'/g, "");
+        const logo = (s.subject_logo || `https://placehold.co/80x80/4f46e5/ffffff?text=${encodeURIComponent(sname.slice(0, 3))}`).replace(/\\//g, "/");
         grid.innerHTML += `
-            <div onclick="openTestSeriesTitles('${tsId}', '${sId}', '${sname}')" class="bg-white border border-slate-200 rounded-2xl p-5 flex items-center justify-between cursor-pointer shadow-sm mb-3">
-                <div>
-                    <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 text-[10px] font-black">SUB #${sId}</span>
-                    <h4 class="font-black text-sm sm:text-base text-slate-900 mt-1">${sname}</h4>
+            <div onclick="openTestSeriesTitles('${tsId}', '${s.subjectid}', '${sname}')" class="grid-card p-4 flex items-center gap-4 cursor-pointer">
+                <img src="${logo}" class="w-16 h-16 rounded-2xl object-cover shadow-md">
+                <div class="flex-1">
+                    <h4 class="font-black text-base text-slate-900 mt-1">${s.subject_name}</h4>
+                    <p class="text-xs text-blue-600 font-extrabold mt-1">Open Mock Tests ➔</p>
                 </div>
-                <span class="text-indigo-600 font-black">➔</span>
             </div>`;
     });
 };
 
 window.openTestSeriesTitles = async function(tsId, subId, subName) {
+    state.view = "ts_tests";
+    state.activeSeriesId = tsId;
     state.activeTsSubId = String(subId);
     state.activeTsSubName = subName;
-    document.getElementById("testPageTitle").textContent = subName;
 
-    showSlide("page-tests");
-    const grid = document.getElementById("testsGrid");
-    grid.innerHTML = `<div class="py-10 text-center font-bold text-slate-700 animate-pulse">Fetching Mock Tests...</div>`;
+    const grid = document.getElementById("mainGrid");
+    if(grid) grid.innerHTML = `<div class="col-span-full py-10 text-center font-bold text-slate-700">Fetching Tests...</div>`;
 
-    let ep = `${state.currentDomain}/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&chapter_id=-1&userid=000000&search=&start=-1`;
-    if(subId === "-1") ep = `${state.currentDomain}/get/test_titlev2?testseriesid=${tsId}&subject_id=-1&userid=000000&search=&start=-1`;
+    const ep = String(subId) === "-1"
+        ? `/get/test_titlev2?testseriesid=${tsId}&subject_id=-1&chapter_id=-1&search=&start=-1`
+        : `/get/test_titlev2?testseriesid=${tsId}&subject_id=${subId}&chapter_id=-1&search=&start=-1`;
 
-    const list = await fetchAPI(ep);
-    
+    let list = await fetchAPI(ep, () => (DB.tsTitles ? DB.tsTitles[`${tsId}_${subId}`] : []));
+    renderTestTitlesGrid(list, tsId);
+};
+
+function formatCardTimeLabel(rawTime) {
+    const str = String(rawTime || "60").trim();
+    if (str.includes("+")) {
+        const parts = str.split("+").map(n => parseInt(n.trim()) || 0);
+        return `${parts.reduce((a, b) => a + b, 0)} Mins (Sec)`;
+    }
+    return `${str} Mins`;
+}
+
+function renderTestTitlesGrid(list, tsId) {
+    const grid = document.getElementById("mainGrid");
     if (!list || !list.length) {
-        grid.innerHTML = `<div class="bg-white p-10 rounded-2xl shadow-sm text-center font-bold text-slate-600 border border-slate-200">Is section mein abhi koi test uplabdh nahi hai.</div>`;
+        if(grid) grid.innerHTML = `<div class="col-span-full p-10 text-center font-bold text-slate-600">No tests available.</div>`;
         return;
     }
 
-    grid.innerHTML = "";
+    if(grid) grid.innerHTML = "";
     list.forEach((t, idx) => {
         const tKey = `test_${t.id || idx}`;
-        let pdfUrl = t.pdf_url || t.test_solutions_pdf || "";
-        if(pdfUrl && !pdfUrl.startsWith("http")) pdfUrl = state.currentDomain + (pdfUrl.startsWith("/") ? "" : "/") + pdfUrl;
-        
-        state.testMap[tKey] = { ...t, seriesId: tsId, resolvedPdf: pdfUrl };
-        const timeLabel = String(t.time || "60").includes("+") ? "Sectional Time" : `${t.time} Mins`;
+        const pdfUrl = t.pdf_url || t.test_solutions_pdf || t.pdf_summary_link || "";
+        state.testMap[tKey] = { ...t, seriesId: tsId || t.test_series_id, resolvedPdf: pdfUrl, test_questions_url: t.test_questions_url };
+        const timeLabel = formatCardTimeLabel(t.time);
 
-        grid.innerHTML += `
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm mb-4">
-                <div class="flex justify-between items-center gap-2 mb-2">
-                    <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">TEST #${t.id || (idx + 1)}</span>
-                    <span class="text-[11px] font-extrabold text-slate-500">⏱️ ${timeLabel}</span>
+        if(grid) grid.innerHTML += `
+            <div class="grid-card p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center gap-2 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">TEST #${t.id || (idx + 1)}</span>
+                        <span class="text-[11px] font-extrabold text-emerald-700">⏱️ ${timeLabel}</span>
+                    </div>
+                    <h4 class="font-black text-base text-slate-900 mt-2">${t.title}</h4>
+                    <div class="flex gap-2.5 mt-2 text-xs font-bold text-slate-600 flex-wrap">
+                        <span>❓ ${t.questions || 50} Qs</span>
+                        <span>🏆 ${t.marks || 100} Marks</span>
+                    </div>
                 </div>
-                <h4 class="font-black text-sm sm:text-base text-slate-900 mb-2">${t.title}</h4>
-                <div class="flex gap-3 text-xs font-bold text-slate-600 mb-4">
-                    <span class="text-rose-600">❓ ${t.questions || 100} Qs</span>
-                    <span class="text-amber-600">🏆 ${t.marks || 100} Marks</span>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="launchCbtTest('${tKey}')" class="bg-indigo-600 text-white font-bold py-2.5 rounded-xl flex-1 text-xs shadow-md">🚀 Attempt Live</button>
-                    ${pdfUrl ? `<button onclick="openTestPdf('${tKey}')" class="bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow-md">📄 PDF</button>` : ""}
+                <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-sky-100">
+                    <button onclick="launchCbtTest('${tKey}')" class="btn-watch flex-1 text-xs">🚀 Attempt Live Test</button>
+                    ${pdfUrl ? `<button onclick="openTestPdf('${tKey}')" class="btn-pdf1 text-xs">📄 Test PDF</button>` : ""}
                 </div>
             </div>`;
     });
+}
+
+window.openTestPdf = function(tKey) {
+    const t = state.testMap[tKey];
+    if (!t || !t.resolvedPdf) return;
+    state.currentPdfUrl = t.resolvedPdf;
+    const pdfFrame = document.getElementById("pdfFrame");
+    if(pdfFrame) pdfFrame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(t.resolvedPdf)}&embedded=true`;
+    showSlide("slidePdf");
+};
+
+window.closePdfSlide = function() {
+    const pdfFrame = document.getElementById("pdfFrame");
+    if(pdfFrame) pdfFrame.src = "";
+    showSlide(state.previousSlide || "slideExplorer");
 };
 
 window.launchCbtTest = async function(tKey) {
     if (typeof window.launchTcsCbtEngine === "function") {
         await window.launchTcsCbtEngine(tKey);
     } else {
-        logDebug("TCS Engine not loaded!", "error");
+        alert("TCS Engine script not found!");
     }
 };
 
-window.openTestPdf = function(tKey) {
-    const t = state.testMap[tKey];
-    if (!t || !t.resolvedPdf) return;
+// AUTO LAUNCH & CLEANUP ON LOAD
+window.addEventListener("DOMContentLoaded", () => {
+    // Hide unneeded UI elements logically based on old UI
+    const navAuth = document.getElementById('navAuthArea');
+    if(navAuth) navAuth.style.display = 'none';
+    const subTabs = document.getElementById('subTabs');
+    if(subTabs) subTabs.style.display = 'none';
     
-    document.getElementById("pdfTitle").textContent = t.title;
-    document.getElementById("pdfFrame").src = `https://docs.google.com/viewer?url=${encodeURIComponent(t.resolvedPdf)}&embedded=true`;
-    showSlide("page-pdf");
-};
+    // Hide top bar links that are useless now
+    document.querySelectorAll('.btn-nav').forEach(btn => {
+        if(btn.innerText.includes('Home') || btn.innerText.includes('Free') || btn.innerText.includes('My Token')) {
+            btn.style.display = 'none';
+        }
+    });
 
-window.closePdfSlide = function() {
-    document.getElementById("pdfFrame").src = "";
-    showSlide("page-tests");
-};
+    // Start App Directly in Paid Test Series
+    openTestSeriesExplorer('paid_ts');
+});
