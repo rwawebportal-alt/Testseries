@@ -106,11 +106,11 @@ window.startScanning = async function() {
         document.getElementById("totalCoachingsBadge").textContent = "0";
 
         // 4. Concurrent Queue Logic
-        const MAX_CONCURRENT = 12; // Test 12 parallel requests
+        const MAX_CONCURRENT = 120; // Test 12 parallel requests
         let currentIndex = 0;
 
         const scanWorker = async () => {
-            while (currentIndex < total) {
+            while (currentIndex < total && !scanAborted) {
                 const i = currentIndex++;
                 const coaching = allCoachingsList[i];
                 let api = coaching.api;
@@ -220,7 +220,10 @@ window.filterCoachings = function() {
     window.renderCoachingGrid(filtered);
 };
 
+let scanAborted = false;
+
 window.selectCoaching = function(name, api) {
+    scanAborted = true; // Signal active scan workers to stop if running
     API_BASE = api;
     
     const statusBadge = document.getElementById("apiStatus");
