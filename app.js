@@ -1,6 +1,6 @@
 // =========================================================
 // TEST PRO - SMART ENGINE (app.js)
-// Fixed Slide Routing & Nav Hiding
+// Complete Wrapper Separation Logic
 // =========================================================
 
 const PROXY_URL = "https://proplayer.allswbatch22.workers.dev/proxy?url="; 
@@ -14,9 +14,6 @@ let state = {
     testMap: {}
 };
 
-// =====================================================
-// DEBUG LOGGER SYSTEM
-// =====================================================
 function logDebug(msg, type = "info") {
     const box = document.getElementById("debugLogContent");
     if(!box) return;
@@ -30,11 +27,9 @@ function logDebug(msg, type = "info") {
 window.toggleDebugBox = function() {
     document.getElementById("debugBoxOverlay").classList.toggle("hidden");
 };
-
 window.clearDebugLogs = function() {
     document.getElementById("debugLogContent").innerHTML = "> Logs cleared...<br>";
 };
-
 window.copyDebugLogs = function() {
     const text = document.getElementById("debugLogContent").innerText;
     navigator.clipboard.writeText(text);
@@ -42,29 +37,45 @@ window.copyDebugLogs = function() {
 };
 
 // =====================================================
-// SLIDE NAVIGATION ENGINE (FIXED OVERLAP)
+// FIXED NAVIGATION ENGINE (Handles Display none perfectly)
 // =====================================================
 window.showSlide = function(slideId) {
-    // 1. Hide Global Nav for Fullscreen sections (CBT & PDF)
-    const nav = document.getElementById("topHeaderNav");
-    if(nav) {
-        if(slideId === "page-cbt" || slideId === "page-pdf") {
-            nav.classList.add("hidden");
-        } else {
-            nav.classList.remove("hidden");
-        }
-    }
+    // Standard Pages (Home, Series, Subjects, Tests)
+    const stdPages = ["page-home", "page-series", "page-subjects", "page-tests"];
+    const stdWrapper = document.getElementById("standard-app-wrapper");
+    const cbtPage = document.getElementById("page-cbt");
+    const pdfPage = document.getElementById("page-pdf");
 
-    // 2. Animate Pages
-    document.querySelectorAll(".slide-page").forEach(el => {
-        if(el.id === slideId) {
-            el.classList.remove("hidden-slide");
-            el.classList.add("active-slide");
-        } else {
-            el.classList.add("hidden-slide");
-            el.classList.remove("active-slide");
-        }
-    });
+    if (stdPages.includes(slideId)) {
+        stdWrapper.style.display = "flex";
+        cbtPage.style.display = "none";
+        cbtPage.classList.add("hidden");
+        pdfPage.style.display = "none";
+        pdfPage.classList.add("hidden");
+
+        stdPages.forEach(id => {
+            const el = document.getElementById(id);
+            if(id === slideId) {
+                el.classList.remove("hidden-slide");
+                el.classList.add("active-slide");
+            } else {
+                el.classList.add("hidden-slide");
+                el.classList.remove("active-slide");
+            }
+        });
+    } else if (slideId === "page-cbt") {
+        stdWrapper.style.display = "none"; 
+        cbtPage.style.display = "flex";
+        cbtPage.classList.remove("hidden");
+        pdfPage.style.display = "none";
+        pdfPage.classList.add("hidden");
+    } else if (slideId === "page-pdf") {
+        stdWrapper.style.display = "none";
+        cbtPage.style.display = "none";
+        cbtPage.classList.add("hidden");
+        pdfPage.style.display = "flex";
+        pdfPage.classList.remove("hidden");
+    }
 };
 
 window.goHome = function() {
@@ -76,59 +87,43 @@ window.goHome = function() {
 // TRIPLE FALLBACK API CALLER
 // =====================================================
 async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) {
-    const headers = {
-        "Client-Service": "Appx",
-        "Auth-Key": "appxapi",
-        "source": "website",
-        "User-ID": "000000"
-    };
+    const headers = { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website", "User-ID": "000000" };
     
     try {
         logDebug(`[Method 1] Direct fetch: ${endpoint}`);
         const res = await fetch(endpoint, { headers });
         const json = await res.json();
-        
         if (json.data && Object.keys(json.data).length > 0) return json.data;
         if (json.test_titles && json.test_titles.length > 0) return json.test_titles;
         if (Array.isArray(json) && json.length > 0) return json;
         throw new Error("Empty data in Method 1");
     } catch (e1) {
         logDebug(`Method 1 Failed: ${e1.message}`, "warn");
-        
         try {
             logDebug(`[Method 2] Proxy fetch for: ${endpoint}`);
             const pRes = await fetch(PROXY_URL + encodeURIComponent(endpoint), { headers });
             const pJson = await pRes.json();
-            
             if (pJson.data && Object.keys(pJson.data).length > 0) return pJson.data;
             if (pJson.test_titles && pJson.test_titles.length > 0) return pJson.test_titles;
             if (Array.isArray(pJson) && pJson.length > 0) return pJson;
             throw new Error("Empty data in Method 2");
         } catch (e2) {
             logDebug(`Method 2 Failed: ${e2.message}`, "warn");
-            
             if(isTestSeriesDetails && seriesId) {
                 try {
                     const fallbackUrl = `${state.currentDomain}/Test_Series/test_series_by_id?id=${seriesId}`;
                     logDebug(`[Method 3] Alternative API fetch: ${fallbackUrl}`);
-                    
                     let altRes = await fetch(fallbackUrl, { headers }).catch(() => null);
-                    if(!altRes || !altRes.ok) {
-                        altRes = await fetch(PROXY_URL + encodeURIComponent(fallbackUrl), { headers });
-                    }
-                    
+                    if(!altRes || !altRes.ok) altRes = await fetch(PROXY_URL + encodeURIComponent(fallbackUrl), { headers });
                     const altJson = await altRes.json();
                     if (altJson.data) return altJson.data;
                     if (Array.isArray(altJson)) return altJson;
                     throw new Error("Empty data in Method 3");
                 } catch (e3) {
-                    logDebug(`Method 3 Failed: ${e3.message}`, "error");
-                    return [];
+                    logDebug(`Method 3 Failed: ${e3.message}`, "error"); return [];
                 }
             }
-            
-            logDebug("All fetch methods exhausted.", "error");
-            return [];
+            logDebug("All fetch methods exhausted.", "error"); return [];
         }
     }
 }
@@ -139,13 +134,11 @@ async function fetchAPI(endpoint, isTestSeriesDetails = false, seriesId = null) 
 window.startAppWithDomain = async function() {
     let input = document.getElementById("domainInput").value.trim();
     if(!input) input = "sciencemagnet.classx.co.in";
-
     if(input.endsWith("/")) input = input.slice(0, -1);
     if(!input.startsWith("http")) input = "https://" + input;
 
     state.currentDomain = input;
     logDebug(`Domain set to: ${state.currentDomain}`);
-    
     await openTestSeriesExplorer();
 };
 
@@ -155,7 +148,6 @@ window.openTestSeriesExplorer = async function() {
     grid.innerHTML = `<div class="py-12 text-center font-black text-indigo-700 animate-pulse">🔄 Loading Test Series...</div>`;
     
     const fullUrl = `${state.currentDomain}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
-    
     let tsList = await fetchAPI(fullUrl);
     if (!Array.isArray(tsList)) tsList = Object.values(tsList || {});
 
