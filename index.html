@@ -3,10 +3,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Test Series Mini App</title>
+    <title>Test Series Pro Mini App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- MathJax Engine for TCS CBT Math Equations -->
+    <!-- MathJax for TCS Math -->
     <script>
       window.MathJax = {
         tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
@@ -18,232 +18,258 @@
 
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="min-h-screen flex flex-col bg-slate-50">
+<body class="min-h-screen flex flex-col bg-slate-100 overflow-hidden">
 
-    <!-- TOP HEADER NAVIGATION -->
-    <nav id="topHeaderNav" class="sky-nav sticky top-0 z-40 px-4 py-3 shadow-md">
-        <div class="max-w-7xl mx-auto flex items-center justify-center gap-3 cursor-pointer" onclick="goHome()">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg">T</div>
-            <div class="text-center">
-                <div class="font-extrabold text-lg leading-none text-slate-900 tracking-tight">TEST SERIES PRO</div>
-                <div id="apiStatus" class="text-[11px] font-bold text-emerald-600 mt-0.5">● Fast & Clean UI</div>
+    <!-- GLOBAL NAVBAR -->
+    <nav class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-4 py-3 shadow-sm">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow">T</div>
+                <div>
+                    <div class="font-black text-lg leading-none text-slate-900 tracking-tight">TEST PRO</div>
+                    <div class="text-[10px] font-bold text-emerald-600 mt-0.5">● Slide Navigation UI</div>
+                </div>
             </div>
+            <!-- ERROR DEBUG BUTTON -->
+            <button onclick="toggleDebugBox()" class="bg-rose-100 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm">🐞 Debug Logs</button>
         </div>
     </nav>
 
-    <main class="w-full flex-1 relative">
+    <!-- DEBUGGER OVERLAY -->
+    <div id="debugBoxOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                <h3 class="font-black text-rose-600 text-lg">🐞 System Error Logs</h3>
+                <button onclick="toggleDebugBox()" class="text-slate-400 font-black text-lg px-2">✕</button>
+            </div>
+            <div class="p-4 bg-slate-900 text-green-400 font-mono text-xs flex-1 overflow-y-auto" id="debugLogContent">
+                > System initialized...<br>
+            </div>
+            <div class="p-4 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="clearDebugLogs()" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-xs">Clear</button>
+                <button onclick="copyDebugLogs()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs">Copy Logs</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP CONTAINER FOR ALL PAGES (SLIDES) -->
+    <main class="w-full flex-1 relative max-w-4xl mx-auto overflow-hidden bg-white shadow-xl min-h-[calc(100vh-65px)]">
 
         <!-- ==========================================
-             PAGE 1: HOME (Smart URL Input)
+             PAGE 1: HOME (Smart Domain Input)
              ========================================== -->
-        <section id="page-home" class="app-page active-page flex items-center justify-center min-h-[70vh] p-4">
-            <div class="w-full max-w-lg bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 text-center">
-                <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner">🌐</div>
-                <h1 class="text-2xl font-black text-slate-900 mb-2">Load Test Series</h1>
-                <p class="text-sm text-slate-500 font-medium mb-6">Apni app ka sirf main link dalein. (Eg: sciencemagnet.classx.co.in)</p>
+        <section id="page-home" class="slide-page active-slide absolute inset-0 bg-slate-50 flex items-center justify-center p-6">
+            <div class="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 text-center">
+                <div class="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🌐</div>
+                <h1 class="text-2xl font-black text-slate-900 mb-1">Load Domain</h1>
+                <p class="text-xs text-slate-500 font-bold mb-6">Apni app ka main link dalein.</p>
                 
-                <div class="text-left mb-4">
-                    <label class="text-xs font-bold text-slate-700 ml-1">App Domain / Website URL:</label>
-                    <input type="text" id="domainInput" placeholder="https://rozgarapinew.teachx.in" class="w-full bg-slate-50 border-2 border-indigo-200 rounded-xl px-4 py-3 mt-1 text-sm text-slate-900 font-medium outline-none focus:border-indigo-600 transition-colors">
+                <div class="text-left mb-5">
+                    <input type="text" id="domainInput" placeholder="sciencemagnet.classx.co.in" class="w-full bg-slate-50 border-2 border-indigo-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold outline-none focus:border-indigo-600">
                 </div>
-                
-                <button onclick="startAppWithDomain()" class="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black py-3.5 rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all text-sm uppercase tracking-wide">🚀 Fetch Test Series</button>
+                <button onclick="startAppWithDomain()" class="w-full bg-indigo-600 text-white font-black py-3.5 rounded-xl shadow hover:bg-indigo-700 text-sm">🚀 Fetch Series</button>
             </div>
         </section>
 
         <!-- ==========================================
-             PAGE 2: EXPLORER (Grid View)
+             PAGE 2: SERIES LIST 
              ========================================== -->
-        <section id="page-explorer" class="app-page hidden-page p-4 sm:p-6 max-w-7xl mx-auto">
-            <div class="bg-white border border-slate-200 rounded-2xl p-4 sm:px-6 sm:py-4 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <button onclick="handleBack()" class="btn-nav bg-indigo-600 text-white text-xs">⬅ Back</button>
-                        <span id="crumbText" class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-900 font-extrabold text-[10px] uppercase tracking-wider">Explorer</span>
-                    </div>
-                    <h2 id="headingText" class="text-xl sm:text-2xl font-black text-slate-900">Paid Test Series</h2>
-                </div>
-                <div class="w-full sm:w-72">
-                    <input type="text" id="searchBox" oninput="filterGrid()" placeholder="🔍 Search here..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-900 font-medium outline-none focus:border-indigo-500 transition-colors">
-                </div>
+        <section id="page-series" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                <button onclick="goHome()" class="bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Home</button>
+                <h2 class="text-lg font-black text-slate-900">📚 All Test Series</h2>
             </div>
-
-            <div id="mainGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+            <div class="p-4 overflow-y-auto flex-1 pb-10" id="seriesGrid"></div>
         </section>
 
         <!-- ==========================================
-             PAGE 3: TCS CBT ENGINE
+             PAGE 3: SUBJECTS LIST
              ========================================== -->
-        <section id="page-cbt" class="app-page hidden-page">
-            <div id="tcs-app-wrapper" class="tcs-fullscreen-shell">
+        <section id="page-subjects" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                <button onclick="showSlide('page-series')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
+                <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="subPageTitle">Subjects</h2>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 pb-10" id="subjectsGrid"></div>
+        </section>
+
+        <!-- ==========================================
+             PAGE 4: MOCK TESTS LIST
+             ========================================== -->
+        <section id="page-tests" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                <button onclick="showSlide('page-subjects')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
+                <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="testPageTitle">Mock Tests</h2>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 pb-10" id="testsGrid"></div>
+        </section>
+
+        <!-- ==========================================
+             PAGE 5: TCS CBT ENGINE
+             ========================================== -->
+        <section id="page-cbt" class="slide-page hidden-slide absolute inset-0 bg-white z-40 flex flex-col">
+            <div id="tcs-app-wrapper" class="w-full h-full flex flex-col">
                 
                 <!-- START SCREEN -->
-                <div id="start-screen" class="tcs-step-page">
-                    <div class="start-card">
-                        <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-                            <button onclick="exitCbtTest()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border-0 cursor-pointer transition-colors">⬅ Exit Test</button>
-                            <span class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-900 text-[10px] font-extrabold uppercase">TCS CBT PATTERN</span>
+                <div id="start-screen" class="tcs-step flex-col h-full bg-slate-100 p-4 overflow-y-auto items-center justify-center">
+                    <div class="w-full max-w-md bg-white rounded-3xl p-6 shadow-xl border border-slate-200 mx-auto my-auto">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                            <button onclick="exitCbtTest()" class="bg-rose-100 text-rose-800 px-4 py-2 rounded-xl text-xs font-black">✖ Exit</button>
+                            <span class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-900 text-[10px] font-extrabold uppercase">TCS CBT</span>
                         </div>
-                        <h2 id="tcs-start-title" class="text-lg font-black text-indigo-900 text-center border-b border-slate-100 pb-3 mb-4">(TCS Pattern) Mock Test</h2>
-                        <div id="subjects-selection-container"></div>
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4 space-y-2">
-                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Total Questions:</span> <span id="stat-qs" class="text-indigo-900">--</span></div>
-                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Total Time:</span> <span id="stat-time" class="text-indigo-900">--</span></div>
-                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Maximum Marks:</span> <span id="stat-marks" class="text-indigo-900">--</span></div>
+                        <h2 id="tcs-start-title" class="text-xl font-black text-slate-900 text-center mb-4">Mock Test</h2>
+                        <div id="subjects-selection-container" class="mb-4"></div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 mb-6">
+                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Questions:</span> <span id="stat-qs" class="text-indigo-900">--</span></div>
+                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Time:</span> <span id="stat-time" class="text-indigo-900">--</span></div>
+                            <div class="flex justify-between text-sm font-bold text-slate-700"><span>Marks:</span> <span id="stat-marks" class="text-indigo-900">--</span></div>
                         </div>
-                        <button id="tcs-start-btn" class="w-full bg-slate-900 text-white font-black py-4 rounded-xl mt-5 shadow-lg hover:bg-slate-800 transition-colors" onclick="startTest()">Start Test ➔</button>
+                        <button id="tcs-start-btn" class="w-full bg-indigo-900 text-white font-black py-4 rounded-xl shadow-lg hover:bg-indigo-800" onclick="startTest()">🚀 Start Test</button>
                     </div>
                 </div>
 
                 <!-- LIVE TEST SCREEN -->
-                <div id="live-test-screen" class="tcs-step-page tcs-hidden">
-                    <div class="tcs-header">
-                        <div class="flex items-center gap-2">
-                            <div class="text-base sm:text-lg font-black tracking-wider flex items-center">
-                                <span class="text-[10px] bg-red-600 text-white px-2 py-1 rounded-lg mr-2 uppercase">Time Left</span> 
-                                <span id="tcs-timer-display">00:00:00</span>
-                            </div>
+                <div id="live-test-screen" class="tcs-step flex-col h-full bg-white hidden">
+                    <div class="bg-indigo-900 text-white px-4 py-2.5 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2 font-mono font-black text-lg">
+                            <span class="text-[10px] bg-red-500 px-2 py-0.5 rounded font-sans uppercase">Time</span> 
+                            <span id="tcs-timer-display">00:00:00</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="toggleTcsLangMode()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-colors">A/अ</button>
-                            <button onclick="toggleTcsFullScreen()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition-colors hidden sm:block">⛶</button>
-                            <div class="text-2xl cursor-pointer px-2 hover:text-indigo-200 transition-colors" onclick="toggleTcsPalette()">≡</div>
+                        <div class="flex gap-2">
+                            <button onclick="toggleTcsLangMode()" class="px-3 py-1 bg-white/20 rounded font-bold text-xs">A/अ</button>
+                            <button onclick="toggleTcsPalette()" class="px-3 py-1 bg-white/20 rounded font-bold text-xs">≡ Grid</button>
                         </div>
                     </div>
                     
-                    <div class="bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar flex" id="tcs-tabs-container"></div>
+                    <div class="bg-slate-50 border-b border-slate-200 overflow-x-auto whitespace-nowrap flex shrink-0" id="tcs-tabs-container"></div>
                     
-                    <div class="bg-slate-50 px-4 py-2.5 flex justify-between items-center border-b border-slate-200 text-xs font-bold text-slate-600">
+                    <div class="bg-white px-4 py-2 flex justify-between items-center border-b border-slate-100 shrink-0">
                         <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 bg-slate-700 text-white rounded-full flex items-center justify-center font-black" id="tcs-q-num">1</div>
-                            <span id="tcs-q-time" class="text-slate-500 font-mono">00:00</span>
+                            <div class="w-8 h-8 bg-slate-800 text-white rounded-full flex items-center justify-center font-black text-sm" id="tcs-q-num">1</div>
+                            <span id="tcs-q-time" class="text-slate-500 font-mono text-xs font-bold">00:00</span>
                         </div>
-                        <div class="flex gap-2">
-                            <span class="text-green-700 bg-green-100 px-2 py-0.5 rounded" id="tcs-live-pos">+2.00</span>
-                            <span class="text-red-700 bg-red-100 px-2 py-0.5 rounded" id="tcs-live-neg">-0.25</span>
+                        <div class="flex gap-2 font-bold text-xs">
+                            <span class="text-green-700 bg-green-50 px-2 py-1 rounded" id="tcs-live-pos">+2.00</span>
+                            <span class="text-red-700 bg-red-50 px-2 py-1 rounded" id="tcs-live-neg">-0.25</span>
                         </div>
                     </div>
 
-                    <div class="flex-1 bg-white p-4 sm:p-6 overflow-y-auto pb-32 max-w-4xl mx-auto w-full" id="tcs-question-scroll-box">
-                        <div class="text-base sm:text-lg text-slate-900 mb-6 leading-relaxed" id="tcs-q-text">Loading...</div>
+                    <!-- Question Area (Flex 1 ensures it scrolls properly) -->
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 bg-white" id="tcs-question-scroll-box">
+                        <div class="text-base sm:text-lg text-slate-900 mb-6 font-medium" id="tcs-q-text">Loading...</div>
                         <div id="tcs-options-container" class="space-y-3"></div>
                     </div>
                     
-                    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] z-30">
-                        <div class="flex justify-between items-center px-4 py-2 bg-slate-50 border-b border-slate-100 max-w-4xl mx-auto w-full">
-                            <button class="text-xl text-indigo-700 font-black px-3 py-1 hover:bg-indigo-50 rounded" onclick="prevQuestion()">❮</button>
+                    <!-- BOTTOM ACTION BAR -->
+                    <div class="bg-slate-100 border-t border-slate-200 shrink-0 pb-safe">
+                        <div class="flex justify-between items-center px-4 py-2 border-b border-slate-200 bg-white">
+                            <button class="text-xl text-indigo-700 font-black px-4 hover:bg-indigo-50 rounded" onclick="prevQuestion()">❮</button>
                             <span id="tcs-footer-sec-info" class="text-xs font-bold text-slate-500">Section</span>
-                            <button class="text-xl text-indigo-700 font-black px-3 py-1 hover:bg-indigo-50 rounded" onclick="nextQuestion()">❯</button>
+                            <button class="text-xl text-indigo-700 font-black px-4 hover:bg-indigo-50 rounded" onclick="nextQuestion()">❯</button>
                         </div>
-                        <div class="flex p-2 gap-2 max-w-4xl mx-auto w-full">
-                            <button class="flex-1 bg-red-600 text-white font-bold text-xs py-3 rounded-lg shadow-sm" onclick="handleDynamicSubmit()">Submit</button>
-                            <button class="flex-1 bg-white border border-slate-300 text-slate-700 font-bold text-xs py-3 rounded-lg shadow-sm" onclick="markForReview()">Mark</button>
-                            <button class="flex-1 bg-white border border-slate-300 text-slate-700 font-bold text-xs py-3 rounded-lg shadow-sm" onclick="clearResponse()">Clear</button>
-                            <button class="flex-1 bg-sky-500 text-white font-bold text-xs py-3 rounded-lg shadow-sm" onclick="saveAndNext()">Save Next</button>
+                        <div class="flex p-2 gap-2">
+                            <button class="flex-1 bg-red-600 text-white font-bold text-[11px] py-3 rounded-lg" onclick="handleDynamicSubmit()">Submit</button>
+                            <button class="flex-1 bg-white border border-slate-300 text-slate-700 font-bold text-[11px] py-3 rounded-lg" onclick="markForReview()">Mark</button>
+                            <button class="flex-1 bg-white border border-slate-300 text-slate-700 font-bold text-[11px] py-3 rounded-lg" onclick="clearResponse()">Clear</button>
+                            <button class="flex-1 bg-indigo-600 text-white font-bold text-[11px] py-3 rounded-lg" onclick="saveAndNext()">Save Next</button>
                         </div>
                     </div>
                     
                     <!-- PALETTE DRAWER -->
-                    <div class="fixed inset-0 bg-black/60 z-50 opacity-0 pointer-events-none transition-opacity duration-300" id="tcs-palette" onclick="if(event.target === this) toggleTcsPalette()">
-                        <div class="absolute right-0 top-0 w-[85%] max-w-sm h-full bg-white flex flex-col transform translate-x-full transition-transform duration-300 shadow-2xl">
-                            <div class="flex border-b border-slate-200">
-                                <div class="flex-1 text-center py-4 font-black text-sm text-indigo-800 border-b-2 border-indigo-800">Grid View</div>
-                                <div class="flex-1 text-center py-4 font-bold text-sm text-slate-500 cursor-pointer" onclick="prepareSubmit()">Summary</div>
-                                <div class="px-5 py-4 text-red-500 font-black text-xl cursor-pointer" onclick="toggleTcsPalette()">✕</div>
+                    <div class="fixed inset-0 bg-slate-900/60 z-[100] hidden flex-col justify-end" id="tcs-palette">
+                        <div class="bg-white w-full h-[70vh] rounded-t-3xl flex flex-col shadow-2xl relative animate-slideUp">
+                            <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                                <div class="font-black text-indigo-900">Question Grid</div>
+                                <button onclick="toggleTcsPalette()" class="bg-slate-200 text-slate-800 w-8 h-8 rounded-full font-black">✕</button>
                             </div>
                             <div class="p-4 overflow-y-auto flex-1 bg-slate-50" id="tcs-accordion-container"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SUBMIT, ANALYSIS, SOLUTIONS (Handled via JS dynamically, keeping shell clean) -->
-                <div id="submit-screen" class="tcs-step-page tcs-hidden bg-slate-100 p-4">
-                    <div class="max-w-2xl mx-auto w-full flex flex-col h-full">
-                        <div class="bg-indigo-900 text-white text-center py-4 rounded-2xl font-black text-lg mb-4 shadow-md">Test Summary</div>
-                        <div id="submit-summary-container" class="flex-1 overflow-y-auto space-y-3 pb-4"></div>
-                        <div class="bg-white p-6 rounded-2xl text-center shadow-lg border border-slate-200 mt-auto">
-                            <h3 class="font-black text-slate-800 mb-4 text-lg">Submit Test?</h3>
-                            <div class="flex gap-3">
-                                <button class="flex-1 bg-indigo-700 text-white font-black py-3.5 rounded-xl shadow-md" onclick="submitTest()">Yes, Submit</button>
-                                <button class="flex-1 bg-white border-2 border-slate-300 text-slate-700 font-black py-3.5 rounded-xl" onclick="closeSubmit()">Cancel</button>
-                            </div>
+                <!-- SUBMIT SCREEN -->
+                <div id="submit-screen" class="tcs-step flex-col h-full bg-slate-100 hidden p-4">
+                    <div class="bg-indigo-900 text-white text-center py-4 rounded-2xl font-black text-lg mb-4">Test Summary</div>
+                    <div id="submit-summary-container" class="flex-1 overflow-y-auto space-y-3 pb-4"></div>
+                    <div class="bg-white p-6 rounded-2xl text-center shadow-lg border border-slate-200">
+                        <h3 class="font-black text-slate-800 mb-4 text-lg">Submit Test?</h3>
+                        <div class="flex gap-3">
+                            <button class="flex-1 bg-indigo-700 text-white font-black py-3.5 rounded-xl" onclick="submitTest()">Yes, Submit</button>
+                            <button class="flex-1 bg-slate-200 text-slate-700 font-black py-3.5 rounded-xl" onclick="closeSubmit()">Cancel</button>
                         </div>
                     </div>
                 </div>
 
-                <div id="analysis-screen" class="tcs-step-page tcs-hidden bg-slate-50">
-                    <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-20 shadow-md">
-                        <button onclick="exitCbtTest()" class="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-lg">⬅ Exit</button>
+                <!-- ANALYSIS SCREEN -->
+                <div id="analysis-screen" class="tcs-step flex-col h-full bg-slate-50 hidden">
+                    <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center shrink-0">
+                        <button onclick="exitCbtTest()" class="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">⬅ Exit</button>
                         <h1 class="font-black text-base">Analysis</h1>
                         <button onclick="reAttemptCbtTest()" class="text-xs font-bold bg-indigo-600 px-3 py-1.5 rounded-lg">🔄 Re-Attempt</button>
                     </div>
-                    <div class="max-w-3xl mx-auto w-full p-4 pb-24">
+                    <div class="flex-1 overflow-y-auto p-4">
                         <div id="dynamic-remark" class="text-center font-bold p-3 rounded-xl mb-4 hidden"></div>
-                        
                         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-5">
                             <div class="grid grid-cols-3 gap-4 text-center">
-                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-indigo-700" id="res-score">0</div><div class="text-xs font-bold text-slate-500 mt-1">Score</div></div>
-                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-purple-700" id="res-rank">--</div><div class="text-xs font-bold text-slate-500 mt-1">Rank</div></div>
-                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-emerald-700" id="res-acc">0%</div><div class="text-xs font-bold text-slate-500 mt-1">Accuracy</div></div>
+                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-indigo-700" id="res-score">0</div><div class="text-[10px] font-bold text-slate-500 uppercase mt-1">Score</div></div>
+                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-purple-700" id="res-rank">--</div><div class="text-[10px] font-bold text-slate-500 uppercase mt-1">Rank</div></div>
+                                <div class="bg-slate-50 p-3 rounded-xl"><div class="text-xl font-black text-emerald-700" id="res-acc">0%</div><div class="text-[10px] font-bold text-slate-500 uppercase mt-1">Accuracy</div></div>
                             </div>
                         </div>
-                        <div id="analysis-sections-container" class="space-y-4"></div>
-                        <button class="w-full bg-indigo-800 text-white font-black py-4 rounded-xl shadow-lg mt-6 text-base" onclick="openSolutions()">📊 View Solutions ➔</button>
+                        <div id="analysis-sections-container" class="space-y-3 mb-6"></div>
+                        <button class="w-full bg-indigo-800 text-white font-black py-4 rounded-xl shadow-lg text-sm" onclick="openSolutions()">📊 View Full Solutions ➔</button>
                     </div>
                 </div>
 
-                <div id="solutions-screen" class="tcs-step-page tcs-hidden bg-slate-50">
-                    <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-20 shadow-md">
-                        <span class="cursor-pointer text-sm font-bold bg-white/10 px-3 py-1.5 rounded-lg" onclick="closeSolutions()">⬅ Back</span>
-                        <span class="font-black">Solutions</span>
-                        <span class="cursor-pointer text-sm font-bold bg-white/10 px-3 py-1.5 rounded-lg" onclick="toggleTcsLangMode()">A/अ</span>
+                <!-- SOLUTIONS LIST -->
+                <div id="solutions-screen" class="tcs-step flex-col h-full bg-slate-50 hidden">
+                    <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center shrink-0">
+                        <button onclick="closeSolutions()" class="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">⬅ Back</button>
+                        <span class="font-black">Solutions List</span>
+                        <button onclick="toggleTcsLangMode()" class="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">A/अ</button>
                     </div>
-                    <div class="flex gap-2 p-3 bg-white border-b border-slate-200 overflow-x-auto sticky top-[52px] z-10 hide-scrollbar" id="sol-filters-bar">
-                        <button class="flt-btn flt-active px-4 py-1.5 rounded-lg border border-slate-200 text-xs font-bold whitespace-nowrap" onclick="filterSol('all', this)">All</button>
-                        <button class="flt-btn px-4 py-1.5 rounded-lg border border-slate-200 text-xs font-bold whitespace-nowrap" onclick="filterSol('correct', this)">Correct</button>
-                        <button class="flt-btn px-4 py-1.5 rounded-lg border border-slate-200 text-xs font-bold whitespace-nowrap" onclick="filterSol('incorrect', this)">Incorrect</button>
-                        <button class="flt-btn px-4 py-1.5 rounded-lg border border-slate-200 text-xs font-bold whitespace-nowrap" onclick="filterSol('unattempted', this)">Unattempted</button>
+                    <div class="flex gap-2 p-3 bg-white border-b border-slate-200 overflow-x-auto shrink-0 hide-scrollbar" id="sol-filters-bar">
+                        <button class="flt-btn flt-active" onclick="filterSol('all', this)">All</button>
+                        <button class="flt-btn" onclick="filterSol('correct', this)">Correct</button>
+                        <button class="flt-btn" onclick="filterSol('incorrect', this)">Incorrect</button>
+                        <button class="flt-btn" onclick="filterSol('unattempted', this)">Unattempted</button>
                     </div>
-                    <div class="max-w-3xl mx-auto w-full p-4" id="sol-list-container"></div>
+                    <div class="flex-1 overflow-y-auto p-4" id="sol-list-container"></div>
                 </div>
 
-                <div id="full-sol-screen" class="tcs-step-page tcs-hidden bg-white">
-                    <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center sticky top-0 z-20 shadow-md">
-                        <span class="cursor-pointer text-sm font-bold bg-white/10 px-3 py-1.5 rounded-lg" onclick="closeFullSol()">⬅ List</span>
-                        <span class="font-black">Solution</span>
-                        <span class="cursor-pointer text-sm font-bold bg-white/10 px-3 py-1.5 rounded-lg" onclick="toggleTcsLangMode()">A/अ</span>
+                <!-- INDIVIDUAL SOLUTION -->
+                <div id="full-sol-screen" class="tcs-step flex-col h-full bg-white hidden">
+                    <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center shrink-0">
+                        <button onclick="closeFullSol()" class="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">⬅ List</button>
+                        <span class="font-black">Explanation</span>
+                        <button onclick="toggleTcsLangMode()" class="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg">A/अ</button>
                     </div>
-                    <div class="max-w-3xl mx-auto w-full pb-24 h-full overflow-y-auto">
-                        <div class="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
-                            <div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-black" id="fs-q-num">Q 1</div>
-                            <div id="fs-q-time-compare"></div>
+                    <div class="flex-1 overflow-y-auto p-4 pb-20">
+                        <div class="bg-indigo-50 text-indigo-900 px-4 py-2 rounded-xl text-sm font-black mb-4 flex justify-between">
+                            <span id="fs-q-num">Q 1</span>
                         </div>
-                        <div class="p-4 sm:p-6">
-                            <div class="text-base sm:text-lg text-slate-900 mb-6 font-medium leading-relaxed" id="fs-q-txt"></div>
-                            <div id="fs-options-container" class="space-y-3"></div>
-                            <div class="font-black text-indigo-900 text-lg mt-8 mb-4 flex items-center gap-2"><span>💡</span> Explanation</div>
-                            <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl text-slate-800 text-sm leading-relaxed" id="fs-exp-text"></div>
-                        </div>
+                        <div class="text-base font-medium text-slate-900 mb-6" id="fs-q-txt"></div>
+                        <div id="fs-options-container" class="space-y-3 mb-6"></div>
+                        <div class="font-black text-slate-800 mb-3 border-t border-slate-200 pt-4">💡 Official Solution</div>
+                        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-slate-700 text-sm" id="fs-exp-text"></div>
                     </div>
-                    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-30">
-                        <div class="max-w-3xl mx-auto flex justify-between">
-                            <button class="bg-slate-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md" onclick="prevFullSol()">⬅ Prev</button>
-                            <button class="bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md" onclick="nextFullSol()">Next ➔</button>
-                        </div>
+                    <div class="bg-white border-t border-slate-200 p-3 shrink-0 flex justify-between gap-3">
+                        <button class="flex-1 bg-slate-200 text-slate-800 py-3 rounded-xl font-black text-sm" onclick="prevFullSol()">⬅ Prev</button>
+                        <button class="flex-1 bg-indigo-700 text-white py-3 rounded-xl font-black text-sm" onclick="nextFullSol()">Next ➔</button>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ==========================================
-             PAGE 4: PDF VIEWER
+             PAGE 6: PDF VIEWER
              ========================================== -->
-        <section id="page-pdf" class="app-page hidden-page p-4 h-[90vh] flex flex-col">
-            <div class="bg-white border border-slate-200 rounded-t-2xl p-4 flex justify-between items-center shadow-sm z-10">
+        <section id="page-pdf" class="slide-page hidden-slide absolute inset-0 bg-slate-900 z-50 flex flex-col">
+            <div class="bg-white px-4 py-3 flex justify-between items-center shrink-0">
                 <h3 id="pdfTitle" class="font-black text-slate-900 text-sm truncate pr-4">📄 Test PDF</h3>
-                <button onclick="closePdfSlide()" class="bg-rose-600 text-white font-bold px-4 py-1.5 rounded-lg text-xs shadow-md">✖ Close</button>
+                <button onclick="closePdfSlide()" class="bg-rose-100 text-rose-700 font-bold px-4 py-1.5 rounded-lg text-xs">✖ Close</button>
             </div>
-            <div class="flex-1 bg-slate-900 rounded-b-2xl overflow-hidden relative border-x border-b border-slate-200">
+            <div class="flex-1 relative">
                 <iframe id="pdfFrame" class="absolute inset-0 w-full h-full" src="" frameborder="0"></iframe>
             </div>
         </section>
