@@ -20,22 +20,8 @@
 </head>
 <body class="min-h-screen flex flex-col bg-slate-100 overflow-hidden">
 
-    <!-- GLOBAL NAVBAR (Added ID for Auto-Hide) -->
-    <nav id="topHeaderNav" class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-4 py-3 shadow-sm transition-all">
-        <div class="max-w-4xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow">T</div>
-                <div>
-                    <div class="font-black text-lg leading-none text-slate-900 tracking-tight">TEST PRO</div>
-                    <div class="text-[10px] font-bold text-emerald-600 mt-0.5">● Slide Navigation UI</div>
-                </div>
-            </div>
-            <button onclick="toggleDebugBox()" class="bg-rose-100 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm">🐞 Debug Logs</button>
-        </div>
-    </nav>
-
-    <!-- DEBUGGER OVERLAY -->
-    <div id="debugBoxOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] hidden flex items-center justify-center p-4">
+    <!-- DEBUGGER OVERLAY (Always on top) -->
+    <div id="debugBoxOverlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
             <div class="flex justify-between items-center p-4 border-b border-slate-200">
                 <h3 class="font-black text-rose-600 text-lg">🐞 System Error Logs</h3>
@@ -51,50 +37,76 @@
         </div>
     </div>
 
-    <!-- APP CONTAINER FOR REGULAR PAGES -->
-    <main class="w-full flex-1 relative max-w-4xl mx-auto overflow-hidden bg-white shadow-xl min-h-[calc(100vh-65px)]">
-
-        <section id="page-home" class="slide-page active-slide absolute inset-0 bg-slate-50 flex items-center justify-center p-6">
-            <div class="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 text-center">
-                <div class="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🌐</div>
-                <h1 class="text-2xl font-black text-slate-900 mb-1">Load Domain</h1>
-                <p class="text-xs text-slate-500 font-bold mb-6">Apni app ka main link dalein.</p>
-                <div class="text-left mb-5">
-                    <input type="text" id="domainInput" placeholder="sciencemagnet.classx.co.in" class="w-full bg-slate-50 border-2 border-indigo-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold outline-none focus:border-indigo-600">
+    <!-- =========================================================================
+         APP WRAPPER 1: STANDARD SCREENS (Navbar + Pages)
+         These will be COMPLETELY HIDDEN when PDF or Test opens.
+         ========================================================================= -->
+    <div id="standard-app-wrapper" class="flex flex-col h-screen w-full">
+        <!-- GLOBAL NAVBAR -->
+        <nav class="bg-white/95 backdrop-blur-md border-b border-slate-200 shrink-0 px-4 py-3 shadow-sm z-50">
+            <div class="max-w-4xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow">T</div>
+                    <div>
+                        <div class="font-black text-lg leading-none text-slate-900 tracking-tight">TEST PRO</div>
+                        <div class="text-[10px] font-bold text-emerald-600 mt-0.5">● Slide Navigation UI</div>
+                    </div>
                 </div>
-                <button onclick="startAppWithDomain()" class="w-full bg-indigo-600 text-white font-black py-3.5 rounded-xl shadow hover:bg-indigo-700 text-sm">🚀 Fetch Series</button>
+                <button onclick="toggleDebugBox()" class="bg-rose-100 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-lg text-xs font-black shadow-sm">🐞 Debug Logs</button>
             </div>
-        </section>
+        </nav>
 
-        <section id="page-series" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
-            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
-                <button onclick="goHome()" class="bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Home</button>
-                <h2 class="text-lg font-black text-slate-900">📚 All Test Series</h2>
-            </div>
-            <div class="p-4 overflow-y-auto flex-1 pb-10" id="seriesGrid"></div>
-        </section>
+        <main class="w-full flex-1 relative max-w-4xl mx-auto overflow-hidden bg-white shadow-xl">
+            <!-- PAGE 1: HOME -->
+            <section id="page-home" class="slide-page active-slide absolute inset-0 bg-slate-50 flex items-center justify-center p-6">
+                <div class="w-full max-w-sm bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 text-center">
+                    <div class="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🌐</div>
+                    <h1 class="text-2xl font-black text-slate-900 mb-1">Load Domain</h1>
+                    <p class="text-xs text-slate-500 font-bold mb-6">Apni app ka main link dalein.</p>
+                    
+                    <div class="text-left mb-5">
+                        <input type="text" id="domainInput" placeholder="sciencemagnet.classx.co.in" class="w-full bg-slate-50 border-2 border-indigo-200 rounded-xl px-4 py-3 text-sm text-slate-900 font-bold outline-none focus:border-indigo-600">
+                    </div>
+                    <button onclick="startAppWithDomain()" class="w-full bg-indigo-600 text-white font-black py-3.5 rounded-xl shadow hover:bg-indigo-700 text-sm">🚀 Fetch Series</button>
+                </div>
+            </section>
 
-        <section id="page-subjects" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
-            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
-                <button onclick="showSlide('page-series')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
-                <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="subPageTitle">Subjects</h2>
-            </div>
-            <div class="p-4 overflow-y-auto flex-1 pb-10" id="subjectsGrid"></div>
-        </section>
+            <!-- PAGE 2: SERIES LIST -->
+            <section id="page-series" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+                <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                    <button onclick="goHome()" class="bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Home</button>
+                    <h2 class="text-lg font-black text-slate-900">📚 All Test Series</h2>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1 pb-10" id="seriesGrid"></div>
+            </section>
 
-        <section id="page-tests" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
-            <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
-                <button onclick="showSlide('page-subjects')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
-                <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="testPageTitle">Mock Tests</h2>
-            </div>
-            <div class="p-4 overflow-y-auto flex-1 pb-10" id="testsGrid"></div>
-        </section>
-    </main>
+            <!-- PAGE 3: SUBJECTS LIST -->
+            <section id="page-subjects" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+                <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                    <button onclick="showSlide('page-series')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
+                    <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="subPageTitle">Subjects</h2>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1 pb-10" id="subjectsGrid"></div>
+            </section>
 
-    <!-- ==========================================
-         PAGE 5: TCS CBT ENGINE (!z-[999] Added)
-         ========================================== -->
-    <section id="page-cbt" class="slide-page hidden-slide fixed inset-0 w-full h-full bg-white !z-[999] flex flex-col">
+            <!-- PAGE 4: MOCK TESTS LIST -->
+            <section id="page-tests" class="slide-page hidden-slide absolute inset-0 bg-slate-50 flex flex-col">
+                <div class="bg-white p-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                    <button onclick="showSlide('page-subjects')" class="bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg text-xs font-black">⬅ Back</button>
+                    <h2 class="text-lg font-black text-slate-900 truncate flex-1" id="testPageTitle">Mock Tests</h2>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1 pb-10" id="testsGrid"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- =========================================================================
+         APP WRAPPER 2: FULLSCREEN SCREENS (CBT Engine & PDF)
+         These exist outside the standard layout.
+         ========================================================================= -->
+         
+    <!-- PAGE 5: TCS CBT ENGINE -->
+    <section id="page-cbt" class="hidden fixed inset-0 w-full h-full bg-white z-[999] flex-col">
         <div id="tcs-app-wrapper" class="w-full h-full flex flex-col">
             
             <div id="start-screen" class="tcs-step flex-col h-full bg-slate-100 p-4 overflow-y-auto items-center justify-center">
@@ -169,7 +181,7 @@
                 </div>
             </div>
 
-            <!-- SUBMIT, ANALYSIS, SOLUTIONS SCREENS (Identical to previous) -->
+            <!-- OTHER CBT SCREENS (Submit, Analysis, Solutions) remain same logic -->
             <div id="submit-screen" class="tcs-step flex-col h-full bg-slate-100 hidden p-4">
                 <div class="max-w-2xl mx-auto w-full flex flex-col h-full">
                     <div class="bg-indigo-900 text-white text-center py-4 rounded-2xl font-black text-lg mb-4">Test Summary</div>
@@ -244,10 +256,8 @@
         </div>
     </section>
 
-    <!-- ==========================================
-         PAGE 6: PDF VIEWER (!z-[999] Added)
-         ========================================== -->
-    <section id="page-pdf" class="slide-page hidden-slide fixed inset-0 w-full h-full bg-slate-900 !z-[999] flex flex-col">
+    <!-- PAGE 6: PDF VIEWER -->
+    <section id="page-pdf" class="hidden fixed inset-0 w-full h-full bg-slate-900 z-[999] flex-col">
         <div class="bg-white px-4 py-3 flex justify-between items-center shrink-0 shadow-md">
             <h3 id="pdfTitle" class="font-black text-slate-900 text-sm truncate pr-4">📄 Test PDF</h3>
             <button onclick="closePdfSlide()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-black px-4 py-2 rounded-lg text-xs shadow-sm transition-colors">✖ Close</button>
