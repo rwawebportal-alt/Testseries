@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="hi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Test Series Mini App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    
+    <!-- MathJax Engine for TCS CBT Math Equations -->
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+        options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] },
+        startup: {
+          pageReady: () => {
+            return MathJax.startup.defaultPageReady();
+          }
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50">
+
+    <!-- TOP HEADER NAVIGATION (Cleaned up, no login/token buttons) -->
+    <nav id="topHeaderNav" class="sky-nav sticky top-0 z-40 px-4 py-3 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="goHomeHub()">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg">T</div>
+                <div>
+                    <div class="font-extrabold text-lg leading-none text-slate-900 tracking-tight">TEST SERIES PRO</div>
+                    <div id="apiStatus" class="text-[11px] font-bold text-emerald-600 mt-0.5">● Live Connected</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl w-full mx-auto p-3 sm:p-6 flex-1 relative overflow-x-hidden">
+
+        <!-- SLIDE 1: HOME HUB -->
+        <section id="slideHome" class="slide-page active-slide">
+            <div class="text-center max-w-2xl mx-auto mb-8 mt-2">
+                <span class="px-3.5 py-1 rounded-full bg-indigo-100 text-indigo-900 font-extrabold text-xs uppercase tracking-wider shadow-sm">Exclusive Portal</span>
+                <h1 class="text-3xl sm:text-4xl font-black text-slate-900 mt-2">Paid Test Series</h1>
+                <p class="text-slate-700 text-sm font-medium mt-1">Official Mock Tests, Live CBT Engine, and Custom API Loading.</p>
+            </div>
+
+            <!-- CUSTOM API URL LOADER -->
+            <div class="sky-banner max-w-4xl mx-auto mb-8">
+                <h3 class="font-black text-lg text-slate-900 mb-2">🌐 Load Custom Test Series (New API URL)</h3>
+                <p class="text-xs text-slate-600 font-medium mb-3">Agar aapke paas nayi test series ka custom API link hai, toh yahan daalkar direct load karein.</p>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="customApiUrlInput" placeholder="https://api.example.com/get/new_test_series" class="flex-1 bg-white border-2 border-sky-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 font-medium outline-none focus:border-indigo-600">
+                    <button onclick="loadCustomApiTestSeries()" class="btn-watch bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg">Load New API ➔</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 max-w-6xl mx-auto">
+                <div onclick="openTestSeriesExplorer()" class="hub-card hub-paid-ts cursor-pointer">
+                    <div class="hub-icon">🏆</div>
+                    <span class="hub-badge">OFFICIAL EXAM SERIES</span>
+                    <h2 class="text-2xl font-black mt-2">Paid Test Series</h2>
+                    <p class="text-sm opacity-95 mt-1">Sabhi exams ki official Paid Test Series & PDFs.</p>
+                    <div class="hub-btn mt-5">Explore Paid Tests ➔</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: EXPLORER SECTION (Tests Grid) -->
+        <section id="slideExplorer" class="slide-page hidden-slide">
+            <div class="sky-banner flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button onclick="goHomeHub()" class="btn-nav bg-slate-900 text-white border-0 text-xs">🏠 Home</button>
+                        <button onclick="handleGlobalBack()" class="btn-nav bg-indigo-600 text-white border-0 text-xs">⬅ Back</button>
+                        <span id="crumbText" class="px-3 py-1 rounded-full bg-indigo-200 text-indigo-950 font-extrabold text-[11px] uppercase">Explorer</span>
+                    </div>
+                    <h2 id="headingText" class="text-2xl sm:text-3xl font-black text-slate-900 mt-2">Mock Tests</h2>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input type="text" id="searchBox" oninput="filterGrid()" placeholder="🔍 Search test or subject..." 
+                           class="w-full sm:w-72 bg-white border-2 border-indigo-300 rounded-2xl px-4 py-2.5 text-sm text-slate-900 font-medium shadow-sm outline-none focus:border-indigo-600">
+                </div>
+            </div>
+
+            <div id="mainGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        </section>
+
+        <!-- SLIDE 3: FULL-SCREEN TCS CBT MOCK TEST ENGINE -->
+        <section id="slideTestAttempt" class="slide-page hidden-slide">
+            <div id="tcs-app-wrapper" class="tcs-fullscreen-shell">
+                
+                <div id="start-screen" class="tcs-step-page">
+                    <div class="start-card">
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                            <button onclick="exitCbtTest()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border-0 cursor-pointer">⬅ Back to Tests</button>
+                            <span id="tcs-series-tag" class="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-900 text-[11px] font-extrabold uppercase">TCS CBT PATTERN</span>
+                        </div>
+                        <h2 id="tcs-start-title" style="color: #1a237e; border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 14px;">(TCS Pattern) Mock Test</h2>
+                        <div id="subjects-selection-container"></div>
+                        <div class="stats-box">
+                            <div class="start-info"><span>Total Questions:</span> <span id="stat-qs">--</span></div>
+                            <div class="start-info"><span>Total Time:</span> <span id="stat-time">--</span></div>
+                            <div class="start-info"><span>Maximum Marks:</span> <span id="stat-marks">--</span></div>
+                        </div>
+                        <button id="tcs-start-btn" class="start-btn" onclick="startTest()">Start Test ➔</button>
+                    </div>
+                </div>
+
+                <div id="live-test-screen" class="tcs-step-page tcs-hidden">
+                    <div class="tcs-header">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="tcs-timer">
+                                <span id="timer-lbl" style="font-size:11px;background:#e53935;padding:3px 8px;border-radius:10px;margin-right:8px;font-weight:bold;">Time Left</span> 
+                                <span id="tcs-timer-display">00:00:00</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <button onclick="toggleTcsLangMode()" id="tcs-lang-btn" class="px-2.5 py-1 rounded-lg bg-white/15 text-white font-bold text-xs border border-white/30 cursor-pointer">A/अ</button>
+                            <button onclick="toggleTcsFullScreen()" class="px-2.5 py-1 rounded-lg bg-white/15 text-white font-bold text-xs border border-white/30 cursor-pointer">⛶</button>
+                            <div class="tcs-hamburger" onclick="toggleTcsPalette()">≡</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tcs-tabs-wrapper" id="tcs-tabs-container"></div>
+                    
+                    <div class="tcs-q-info-bar">
+                        <div style="display: flex; align-items: center;">
+                            <div class="tcs-q-badge" id="tcs-q-num">1</div>
+                            <span id="tcs-q-time" style="color: #666; font-weight: 600;">00:00</span>
+                        </div>
+                        <div class="tcs-marks">
+                            <span class="tcs-m-pos" id="tcs-live-pos">+2.00</span>
+                            <span class="tcs-m-neg" id="tcs-live-neg">-0.25</span>
+                        </div>
+                    </div>
+
+                    <div class="tcs-question-area" id="tcs-question-scroll-box">
+                        <div class="tcs-q-text" id="tcs-q-text">Loading...</div>
+                        <div id="tcs-options-container"></div>
+                    </div>
+                    
+                    <div class="tcs-footer">
+                        <div class="tcs-arrows">
+                            <button class="tcs-arrow-btn" onclick="prevQuestion()">❮</button>
+                            <span id="tcs-footer-sec-info" class="text-xs font-bold text-slate-500 self-center">Section 1</span>
+                            <button class="tcs-arrow-btn" onclick="nextQuestion()">❯</button>
+                        </div>
+                        <div class="tcs-actions-row">
+                            <button class="tcs-btn tcs-btn-submit" onclick="handleDynamicSubmit()">Submit Quiz</button>
+                            <button class="tcs-btn" onclick="markForReview()">Mark & Next</button>
+                            <button class="tcs-btn" onclick="clearResponse()">Clear</button>
+                            <button class="tcs-btn tcs-btn-save" onclick="saveAndNext()">Save & Next</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tcs-drawer-overlay" id="tcs-palette" onclick="if(event.target === this) toggleTcsPalette()">
+                        <div class="tcs-drawer">
+                            <div class="tcs-dr-header">
+                                <div class="tcs-dr-tab active">Grid View</div>
+                                <div class="tcs-dr-tab" onclick="prepareSubmit()">Summary</div>
+                                <div class="tcs-dr-close" onclick="toggleTcsPalette()">✕</div>
+                            </div>
+                            <div class="tcs-dr-content" id="tcs-accordion-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="submit-screen" class="tcs-step-page tcs-hidden">
+                    <div class="tcs-page-inner">
+                        <div class="submit-header">Submit Test Summary</div>
+                        <div id="submit-summary-container"></div>
+                        <div class="confirm-actions">
+                            <h3 style="margin-bottom: 14px; font-weight: 800; color: #1e293b;">Are you sure?</h3>
+                            <button class="btn-yes" onclick="submitTest()">Yes, Submit</button>
+                            <button class="btn-no" onclick="closeSubmit()">No, Back</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="analysis-screen" class="tcs-step-page tcs-hidden">
+                    <div class="analysis-header">
+                        <button onclick="exitCbtTest()" class="px-3 py-1.5 rounded-lg bg-white/15 text-white font-bold text-xs border-0">⬅ Exit</button>
+                        <h1 style="font-size: 18px; font-weight: 800;">Analysis</h1>
+                        <button onclick="reAttemptCbtTest()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs border-0">🔄 Re-Attempt</button>
+                    </div>
+                    <div class="tcs-page-inner">
+                        <div id="dynamic-remark" class="remark-banner" style="display:none;"></div>
+                        <div class="a-card mt-5">
+                            <div class="sc-grid">
+                                <div class="sc-item"><div class="sc-val" id="res-score">0/0</div><div class="sc-lbl">Score</div></div>
+                                <div class="sc-item"><div class="sc-val" id="res-rank">--</div><div class="sc-lbl">Rank</div></div>
+                                <div class="sc-item"><div class="sc-val" id="res-acc">0%</div><div class="sc-lbl">Accuracy</div></div>
+                            </div>
+                        </div>
+                        <div id="analysis-sections-container"></div>
+                        <div style="padding: 16px;">
+                            <button class="tcs-btn tcs-btn-submit" style="width: 100%; padding: 15px; font-size: 16px; background: #1a237e;" onclick="openSolutions()">📊 View Solutions ➔</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="solutions-screen" class="tcs-step-page tcs-hidden">
+                    <div class="sol-header">
+                        <span style="cursor: pointer;" onclick="closeSolutions()">← Back</span>
+                        <span>Solutions</span>
+                        <span onclick="toggleTcsLangMode()">A/अ</span>
+                    </div>
+                    <div class="filters" id="sol-filters-bar">
+                        <button class="flt-btn flt-active" onclick="filterSol('all', this)">All</button>
+                        <button class="flt-btn" onclick="filterSol('correct', this)">Correct</button>
+                        <button class="flt-btn" onclick="filterSol('incorrect', this)">Incorrect</button>
+                        <button class="flt-btn" onclick="filterSol('unattempted', this)">Unattempted</button>
+                    </div>
+                    <div class="tcs-page-inner">
+                        <div class="sol-container" id="sol-list-container"></div>
+                    </div>
+                </div>
+
+                <div id="full-sol-screen" class="tcs-step-page tcs-hidden">
+                    <div class="fs-header">
+                        <span style="cursor: pointer;" onclick="closeFullSol()">← List</span>
+                        <span>Solution</span>
+                        <span onclick="toggleTcsLangMode()">A/अ</span>
+                    </div>
+                    <div class="tcs-page-inner" style="padding-bottom: 90px;">
+                        <div class="fs-q-info">
+                            <div class="fs-q-pill" id="fs-q-num">Question 1</div>
+                            <div id="fs-q-time-compare"></div>
+                        </div>
+                        <div class="fs-content">
+                            <div class="fs-q-txt" id="fs-q-txt"></div>
+                            <div id="fs-options-container"></div>
+                            <div class="fs-exp-title">💡 Explanation</div>
+                            <div class="fs-exp-text" id="fs-exp-text"></div>
+                        </div>
+                    </div>
+                    <div class="fs-bottom-bar">
+                        <button class="btn-next" style="background: #475569;" onclick="prevFullSol()">⬅ Prev</button>
+                        <button class="btn-next" onclick="nextFullSol()">Next ➔</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: PDF SLIDE -->
+        <section id="slidePdf" class="slide-page hidden-slide">
+            <div class="sky-card p-4">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3 pb-2 border-b border-sky-200">
+                    <h3 id="pdfTitle" class="font-extrabold text-slate-900 text-sm truncate">📄 Test PDF</h3>
+                    <div class="flex gap-2">
+                        <button onclick="closePdfSlide()" class="btn-nav bg-rose-600 text-white border-0 text-xs">✖ Close PDF</button>
+                    </div>
+                </div>
+                <iframe id="pdfFrame" class="w-full h-[82vh] bg-slate-900 rounded-2xl" src="" frameborder="0"></iframe>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="app.js"></script>
+    <script src="tcs-engine.js"></script>
+</body>
+</html>
