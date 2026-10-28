@@ -1,11 +1,11 @@
 // =========================================================
-// PAID TEST SERIES MULTI-COACHING SCANNER ENGINE (app.js)
+// A TO Z COACHING DIRECTORY ENGINE (app.js)
 // =========================================================
 const AES_KEY = CryptoJS.enc.Utf8.parse("638udh3829162018");
 
 let API_BASE = "https://rozgarapinew.teachx.in"; // Default Fallback
 let allCoachingsList = [];
-let validCoachings = []; // Those with tests > 0
+let activeLetter = "A";
 
 // State Management
 let state = {
@@ -29,175 +29,68 @@ function getSafeHostname(url) {
     }
 }
 
-// Load JSON automatically
+// Load JSON automatically and initialize A-Z buttons
 async function loadCoachingsJSON() {
     try {
         const res = await fetch("threeapis.json");
         if (res.ok) {
             allCoachingsList = await res.json();
-            console.log("Loaded Coachings:", allCoachingsList.length);
+            console.log("Loaded Coachings from JSON:", allCoachingsList.length);
+            buildAlphabetBar();
+            selectLetter('A'); // Default select A
         }
     } catch(e) {
         console.error("Failed to load threeapis.json", e);
+        document.getElementById("coachingGrid").innerHTML = `<div class="col-span-full py-12 text-center text-rose-500 font-bold">Failed to load threeapis.json file! Make sure it is in the same directory.</div>`;
     }
 }
 
-// Ensure loaded on boot
-loadCoachingsJSON();
-
-
-// ==========================================
-// MASS SCANNER LOGIC (Find Active Tests)
-// ==========================================
-window.startScanning = async function() {
-    const btn = document.getElementById("scanBtn");
-    const progressArea = document.getElementById("scanProgressArea");
-    const progressBar = document.getElementById("scanProgressBar");
-    const countText = document.getElementById("scanCountText");
-    const grid = document.getElementById("coachingGrid");
-    const statusText = document.getElementById("scanStatusText");
+// Build A to Z buttons dynamically
+function buildAlphabetBar() {
+    const bar = document.getElementById("alphabetBar");
+    if (!bar) return;
     
-    try {
-        // 1. Immediate UI Feedback
-        btn.disabled = true;
-        btn.classList.add("opacity-50", "cursor-not-allowed");
-        btn.innerHTML = "⏳ Initializing Scanner...";
-        
-        if (progressArea) progressArea.classList.remove("hidden");
-        if (statusText) statusText.textContent = "Loading database...";
-        
-        // 2. Fetch JSON if not loaded
-        if (!allCoachingsList || allCoachingsList.length === 0) {
-            try {
-                // cache-busting parameter
-                const res = await fetch("threeapis.json?v=" + new Date().getTime());
-                if (res.ok) {
-                    allCoachingsList = await res.json();
-                } else {
-                    throw new Error("HTTP " + res.status);
-                }
-            } catch(e) {
-                alert("Error loading threeapis.json: Please ensure the file is uploaded. Details: " + e.message);
-                btn.innerHTML = "❌ Scan Failed. Retry";
-                btn.disabled = false;
-                btn.classList.remove("opacity-50", "cursor-not-allowed");
-                return;
+    let html = "";
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    
+    letters.forEach(char => {
+        html += `<button onclick="selectLetter('${char}')" id="btn_let_${char}" class="px-2.5 py-1.5 rounded-xl font-black text-xs bg-slate-100 text-slate-700 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer border border-slate-200">${char}</button>`;
+    });
+    bar.innerHTML = html;
+}
+
+// When user clicks an A-Z letter
+window.selectLetter = function(letter) {
+    activeLetter = letter;
+    
+    // Highlight active alphabet button
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(char => {
+        const btn = document.getElementById(`btn_let_${char}`);
+        if (btn) {
+            if (char === letter) {
+                btn.className = "px-2.5 py-1.5 rounded-xl font-black text-xs bg-indigo-600 text-white shadow-md transition-all cursor-pointer border border-indigo-700 scale-105";
+            } else {
+                btn.className = "px-2.5 py-1.5 rounded-xl font-black text-xs bg-slate-100 text-slate-700 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer border border-slate-200";
             }
         }
-
-        if (allCoachingsList.length === 0) {
-            alert("No coachings found in threeapis.json!");
-            btn.innerHTML = "❌ Empty File. Retry";
-            btn.disabled = false;
-            btn.classList.remove("opacity-50", "cursor-not-allowed");
-            return;
-        }
-
-        // 3. Setup UI for Scanning
-        btn.innerHTML = "🚀 Scanning APIs In Progress...";
-        if (statusText) statusText.textContent = "Checking domains...";
-        grid.innerHTML = "";
-        
-        validCoachings = [];
-        let processed = 0;
-        const total = allCoachingsList.length;
-        if (countText) countText.textContent = `0 / ${total}`;
-        if (progressBar) progressBar.style.width = "0%";
-        document.getElementById("totalCoachingsBadge").textContent = "0";
-
-        // 4. Concurrent Queue Logic
-        const MAX_CONCURRENT = 120; // Test 12 parallel requests
-        let currentIndex = 0;
-
-        const scanWorker = async () => {
-            while (currentIndex < total && !scanAborted) {
-                const i = currentIndex++;
-                const coaching = allCoachingsList[i];
-                let api = coaching.api;
-                if (api.endsWith('/')) api = api.slice(0, -1);
-                
-                try {
-                    const ep = `${api}/get/test_series?start=0&search=&client_api_url=&exam_id=`;
-                    
-                    // Fallback for older WebViews that don't support AbortSignal.timeout
-                    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-                    let timeoutId = null;
-                    let fetchOpts = { headers: { "Client-Service": "Appx", "Auth-Key": "appxapi", "source": "website" } };
-                    
-                    if (controller) {
-                        fetchOpts.signal = controller.signal;
-                        timeoutId = setTimeout(() => controller.abort(), 7000); // 7 seconds timeout
-                    }
-                    
-                    const res = await fetch(ep, fetchOpts).catch(() => null);
-                    
-                    if (timeoutId) clearTimeout(timeoutId);
-
-                    if (res && res.ok) {
-                        const json = await res.json();
-                        let testCount = 0;
-                        if (json && json.data && Array.isArray(json.data)) {
-                            testCount = json.data.length;
-                        } else if (json && json.total) {
-                            testCount = parseInt(json.total) || 0;
-                        }
-                        
-                        if (testCount > 0) {
-                            validCoachings.push({
-                                name: coaching.name,
-                                api: api,
-                                total_tests: json.total || testCount
-                            });
-                            // Update UI instantly when one is found
-                            document.getElementById("totalCoachingsBadge").textContent = validCoachings.length;
-                            window.renderCoachingGrid(validCoachings);
-                        }
-                    }
-                } catch(e) {
-                    // Fail silently for bad APIs
-                }
-                
-                processed++;
-                if (progressBar) progressBar.style.width = Math.round((processed / total) * 100) + "%";
-                if (countText) countText.textContent = `${processed} / ${total}`;
-            }
-        };
-
-        const workers = [];
-        for (let w = 0; w < MAX_CONCURRENT; w++) {
-            workers.push(scanWorker());
-        }
-        
-        await Promise.all(workers);
-        
-        // 5. Completion
-        btn.disabled = false;
-        btn.classList.remove("opacity-50", "cursor-not-allowed");
-        btn.innerHTML = "✅ Scan Complete! Re-Scan";
-        if (statusText) statusText.textContent = "Scan Completed!";
-        
-        if (validCoachings.length === 0) {
-            grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-bold">No active coachings with test series found.</div>`;
-        }
-
-    } catch (error) {
-        alert("Unexpected error: " + error.message);
-        btn.disabled = false;
-        btn.classList.remove("opacity-50", "cursor-not-allowed");
-        btn.innerHTML = "❌ Error Occurred. Retry";
-    }
+    });
+    
+    renderCoachingsForLetter(letter);
 };
 
-window.renderCoachingGrid = function(list) {
+function renderCoachingsForLetter(letter) {
     const grid = document.getElementById("coachingGrid");
     
-    if (!list || list.length === 0) {
-        grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-bold">No active coachings found yet...</div>`;
+    // Filter coachings starting with letter
+    const matched = allCoachingsList.filter(c => c.name && c.name.toUpperCase().startsWith(letter.toUpperCase()));
+    
+    if (matched.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400 font-bold text-sm">No coaching found starting with letter '${letter}'.</div>`;
         return;
     }
     
-    grid.innerHTML = list.map(c => `
-        <div onclick="selectCoaching('${c.name}', '${c.api}')" class="bg-white p-5 rounded-2xl border-2 border-indigo-100 shadow-sm hover:shadow-lg hover:border-indigo-400 transition-all cursor-pointer flex items-center justify-between group">
+    grid.innerHTML = matched.map(c => `
+        <div onclick="selectCoaching('${c.name.replace(/'/g, "")}', '${c.api}')" class="bg-white p-5 rounded-2xl border-2 border-indigo-100 shadow-sm hover:shadow-lg hover:border-indigo-400 transition-all cursor-pointer flex items-center justify-between group">
             <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-black text-xs flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -208,22 +101,42 @@ window.renderCoachingGrid = function(list) {
                 <p class="text-[10px] text-slate-400 font-mono truncate ml-10">${getSafeHostname(c.api)}</p>
             </div>
             <div class="text-right ml-3 shrink-0">
-                <span class="block px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black text-xs rounded-lg">${c.total_tests} Tests</span>
+                <span class="text-indigo-600 font-black text-xs">Explore ➔</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+window.filterCoachings = function() {
+    const q = document.getElementById("coachingSearchBox").value.toLowerCase();
+    const grid = document.getElementById("coachingGrid");
+    
+    const matched = allCoachingsList.filter(c => c.name && (c.name.toLowerCase().includes(q) || c.api.toLowerCase().includes(q)));
+    
+    if (matched.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400 font-bold text-sm">No matching coaching found.</div>`;
+        return;
+    }
+    
+    grid.innerHTML = matched.map(c => `
+        <div onclick="selectCoaching('${c.name.replace(/'/g, "")}', '${c.api}')" class="bg-white p-5 rounded-2xl border-2 border-indigo-100 shadow-sm hover:shadow-lg hover:border-indigo-400 transition-all cursor-pointer flex items-center justify-between group">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 font-black text-xs flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        ${c.name.charAt(0).toUpperCase()}
+                    </span>
+                    <h3 class="font-black text-slate-800 text-base truncate flex-1">${c.name}</h3>
+                </div>
+                <p class="text-[10px] text-slate-400 font-mono truncate ml-10">${getSafeHostname(c.api)}</p>
+            </div>
+            <div class="text-right ml-3 shrink-0">
+                <span class="text-indigo-600 font-black text-xs">Explore ➔</span>
             </div>
         </div>
     `).join('');
 };
 
-window.filterCoachings = function() {
-    const q = document.getElementById("coachingSearchBox").value.toLowerCase();
-    const filtered = validCoachings.filter(c => c.name.toLowerCase().includes(q) || c.api.toLowerCase().includes(q));
-    window.renderCoachingGrid(filtered);
-};
-
-let scanAborted = false;
-
 window.selectCoaching = function(name, api) {
-    scanAborted = true; // Signal active scan workers to stop if running
     API_BASE = api;
     
     const statusBadge = document.getElementById("apiStatus");
@@ -231,6 +144,9 @@ window.selectCoaching = function(name, api) {
     
     window.openTestSeriesExplorer('paid_ts');
 };
+
+// Ensure loaded on boot
+loadCoachingsJSON();
 
 
 // --- Navigation Engine ---
@@ -344,7 +260,7 @@ window.openTestSeriesExplorer = async function(mode) {
         if (!ts || !ts.id || seen.has(String(ts.id))) return;
         seen.add(String(ts.id));
         const title = (ts.title || "Paid Test Series").replace(/'/g, "");
-        const logo = (ts.logo || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\\//g, "/");
+        const logo = (ts.logo || "https://placehold.co/600x320/4f46e5/ffffff?text=Test+Series").replace(/\//g, "/");
         grid.innerHTML += `
             <div onclick="openTestSeriesSubjects('${ts.id}', '${title}')" class="grid-card overflow-hidden cursor-pointer flex flex-col justify-between">
                 <div>
@@ -381,7 +297,7 @@ window.openTestSeriesSubjects = async function(tsId, tsTitle) {
     grid.innerHTML = "";
     subs.forEach(s => {
         const sname = (s.subject_name || "Mock Tests").replace(/'/g, "");
-        const logo = (s.subject_logo || `https://placehold.co/80x80/4f46e5/ffffff?text=${encodeURIComponent(sname.slice(0, 3))}`).replace(/\\//g, "/");
+        const logo = (s.subject_logo || `https://placehold.co/80x80/4f46e5/ffffff?text=${encodeURIComponent(sname.slice(0, 3))}`).replace(/\//g, "/");
         grid.innerHTML += `
             <div onclick="openTestSeriesTitles('${tsId}', '${s.subjectid}', '${sname}')" class="grid-card p-4 flex items-center gap-4 cursor-pointer">
                 <img src="${logo}" onerror="this.src='https://placehold.co/80x80/4f46e5/ffffff?text=TEST'" class="w-16 h-16 rounded-2xl object-cover shadow-md">
@@ -426,10 +342,10 @@ window.decryptAppX = function(encStr) {
     if (!encStr.includes(":")) return encStr.trim();
     try {
         const [cipherB64, ivB64] = encStr.split(":");
-        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(cipherB64.replace(/\\//g, "/")) });
+        const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: CryptoJS.enc.Base64.parse(cipherB64.replace(/\//g, "/")) });
         const iv = CryptoJS.enc.Base64.parse(ivB64);
         const dec = CryptoJS.AES.decrypt(cipherParams, AES_KEY, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
-        return dec.toString(CryptoJS.enc.Utf8).replace(/[ -]/g, "").trim();
+        return dec.toString(CryptoJS.enc.Utf8).replace(/[ -  ]/g, "").trim();
     } catch { return ""; }
 };
 
@@ -481,7 +397,7 @@ window.renderTestTitlesGrid = function(list, tsId) {
                 <div>
                     <div class="flex justify-between items-center gap-2 flex-wrap">
                         <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 text-[10px] font-black">TEST #${t.id || (idx + 1)}</span>
-                        <span class="text-[11px] font-extrabold text-emerald-700">⏱️ ${timeLabel}</span>
+                        <span class="total-tests text-[11px] font-extrabold text-emerald-700">⏱️ ${timeLabel}</span>
                     </div>
                     <h4 class="font-black text-base text-slate-900 mt-2">${t.title}</h4>
                     <div class="flex gap-2.5 mt-2 text-xs font-bold text-slate-600 flex-wrap">
@@ -521,7 +437,7 @@ window.setPdfMode = function(mode) {
 };
 
 window.closePdfSlide = function() {
-    document.getElementById("pdfFrame").src = "";
+    document.getElementById("pdfFile").src = "";
     window.showSlide(state.previousSlide || "slideExplorer");
 };
 
